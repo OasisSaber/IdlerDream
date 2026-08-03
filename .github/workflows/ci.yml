@@ -47,3 +47,34 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: powershell -File scripts/build-sidecar.ps1
       - run: python -m pytest apps/sidecar/tests -k packaged
+
+  # CR-24: prove the Windows release artifact on a clean runner. Builds the
+  # sidecar executable, packages the NSIS per-user installer and smoke-tests
+  # silent install, first-run launch, silent uninstall and data preservation.
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build sidecar executable
+        shell: pwsh
+        run: ./scripts/build-sidecar.ps1
+      - name: Install frontend dependencies
+        run: npm install
+      - name: Build NSIS installer
+        run: npm run dist -w @idlerdream/desktop
+      - name: Smoke test install / uninstall
+        shell: pwsh
+        run: |
+          $installer = (Get-ChildItem "apps/desktop/dist/*Setup*.exe" | Select-Object -First 1).FullName
+          ./scripts/smoke-installer.ps1 -InstallerPath $installer -AppIdleSeconds 10
+      - name: Upload NSIS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: idlerdream-setup
+          path: apps/desktop/dist/*Setup*.exe
