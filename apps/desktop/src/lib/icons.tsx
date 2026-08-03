@@ -20,6 +20,7 @@ const paths: Record<string, ReactNode> = {
   back: <path d="m15 18-6-6 6-6"/>,
   shield: <><path d="M12 3 4 6v5c0 5 3.5 8.2 8 10 4.5-1.8 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/></>,
   more: <><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></>,
+  trash: <><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/><path d="M10 11v5M14 11v5"/></>,
 };
 export function Icon({ name, ...props }: Props) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{paths[name] ?? paths.grid}</svg>;

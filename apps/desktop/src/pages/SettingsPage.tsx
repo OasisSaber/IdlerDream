@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { Project } from "@idlerdream/protocol";
+import { fetchRemovedProjects, purgeProject, restoreProject } from "../lib/api";
 import { Icon } from "../lib/icons";
 
 type SettingsSection = "inspector" | "monitoring" | "data" | "application";
@@ -13,6 +15,33 @@ const sections: Array<{ id: SettingsSection; label: string }> = [
 export function SettingsPage() {
   const [active, setActive] = useState<SettingsSection>("inspector");
   const [launchAtLogin, setLaunchAtLogin] = useState(true);
+  const [removed, setRemoved] = useState<Project[]>([]);
+
+  const reloadRemoved = async () => {
+    try {
+      setRemoved(await fetchRemovedProjects());
+    } catch {
+      setRemoved([]);
+    }
+  };
+
+  useEffect(() => {
+    void reloadRemoved();
+  }, []);
+
+  const restore = async (projectId: string) => {
+    await restoreProject(projectId);
+    await reloadRemoved();
+  };
+
+  const purge = async (project: Project) => {
+    const confirmed = window.confirm(
+      `永久删除项目“${project.name}”及其全部快照与状态？\n此操作不可撤销，工作区目录本身不会被删除。`,
+    );
+    if (!confirmed) return;
+    await purgeProject(project.id);
+    await reloadRemoved();
+  };
 
   return (
     <div className="page settings-page">
@@ -139,35 +168,69 @@ export function SettingsPage() {
           )}
 
           {active === "data" && (
-            <section className="panel settings-section">
-              <div className="panel-title">
-                <div>
-                  <span className="eyebrow">Data retention</span>
-                  <h2>数据与保留</h2>
+            <>
+              <section className="panel settings-section">
+                <div className="panel-title">
+                  <div>
+                    <span className="eyebrow">Data retention</span>
+                    <h2>数据与保留</h2>
+                  </div>
                 </div>
-              </div>
-              <div className="setting-row">
-                <div>
-                  <strong>原始报告保留期</strong>
-                  <span>到期后执行加密销毁</span>
+                <div className="setting-row">
+                  <div>
+                    <strong>原始报告保留期</strong>
+                    <span>到期后执行加密销毁</span>
+                  </div>
+                  <button className="select-like">7 天 <Icon name="chevron" /></button>
                 </div>
-                <button className="select-like">7 天 <Icon name="chevron" /></button>
-              </div>
-              <div className="setting-row">
-                <div>
-                  <strong>结构化快照</strong>
-                  <span>周级 JSONL，只有用户手动删除</span>
+                <div className="setting-row">
+                  <div>
+                    <strong>结构化快照</strong>
+                    <span>周级 JSONL，只有用户手动删除</span>
+                  </div>
+                  <span className="settings-value">长期保留</span>
                 </div>
-                <span className="settings-value">长期保留</span>
-              </div>
-              <div className="setting-row">
-                <div>
-                  <strong>数据目录</strong>
-                  <span>%LOCALAPPDATA%\IdlerDream</span>
+                <div className="setting-row">
+                  <div>
+                    <strong>数据目录</strong>
+                    <span>%LOCALAPPDATA%\IdlerDream</span>
+                  </div>
+                  <button className="button button--secondary"><Icon name="folder" />打开目录</button>
                 </div>
-                <button className="button button--secondary"><Icon name="folder" />打开目录</button>
-              </div>
-            </section>
+              </section>
+
+              <section className="panel settings-section">
+                <div className="panel-title">
+                  <div>
+                    <span className="eyebrow">Recycle bin</span>
+                    <h2>回收站（已移除项目）</h2>
+                  </div>
+                  <span className="status-indicator">{removed.length ? `共 ${removed.length} 项` : "空"}</span>
+                </div>
+                {removed.length === 0 ? (
+                  <p className="empty-inline">没有已移除的项目。移除操作只隐藏项目，工作区目录不会被删除。</p>
+                ) : (
+                  <ul className="removed-list">
+                    {removed.map((project) => (
+                      <li key={project.id} className="removed-item">
+                        <div>
+                          <strong>{project.name}</strong>
+                          <span title={project.path}>{project.path}</span>
+                        </div>
+                        <div className="removed-actions">
+                          <button className="button button--secondary" onClick={() => void restore(project.id)}>
+                            <Icon name="refresh" />恢复
+                          </button>
+                          <button className="button button--danger" onClick={() => void purge(project)}>
+                            <Icon name="trash" />永久删除
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </>
           )}
 
           {active === "application" && (

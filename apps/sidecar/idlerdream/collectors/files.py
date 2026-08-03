@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from ..config import DEFAULT_IGNORE_DIRS
 from ..security.paths import is_sensitive_path
@@ -44,7 +44,7 @@ TEXT_EXTENSIONS = {
 @dataclass(slots=True)
 class WorkspaceDigest:
     fingerprint: str
-    changed_paths: list[str]
+    considered_paths: list[str]
     considered_files: int
     warnings: list[str]
 
@@ -61,7 +61,7 @@ def collect_workspace_digest(
     warnings: list[str] = []
     paths = _candidate_paths(root, ignored, max_files, warnings)
     hasher = hashlib.sha256()
-    changed_paths: list[str] = []
+    considered_paths: list[str] = []
     count = 0
     remaining_content_budget = max(0, content_hash_budget_bytes)
     content_budget_exhausted = False
@@ -94,12 +94,12 @@ def collect_workspace_digest(
             )
             content_budget_exhausted = True
         count += 1
-        if len(changed_paths) < 200:
-            changed_paths.append(relative)
+        if len(considered_paths) < 200:
+            considered_paths.append(relative)
 
     return WorkspaceDigest(
         fingerprint=hasher.hexdigest(),
-        changed_paths=changed_paths,
+        considered_paths=considered_paths,
         considered_files=count,
         warnings=warnings,
     )

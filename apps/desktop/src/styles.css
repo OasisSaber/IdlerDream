@@ -435,6 +435,26 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .toast svg { width: 15px; color: var(--green); }
 @keyframes toast-enter { from { opacity: 0; transform: translate(-50%, 8px) scale(.97); } to { opacity: 1; transform: translateX(-50%); } }
 
+.modal-backdrop { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 24px; background: rgba(10, 10, 12, .38); backdrop-filter: blur(6px); }
+.modal-panel { width: min(620px, 100%); max-height: min(720px, calc(100vh - 48px)); overflow: auto; border: 1px solid var(--separator); border-radius: 24px; background: var(--surface); box-shadow: var(--shadow-lg); animation: modal-enter var(--transition-standard) both; }
+@keyframes modal-enter { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+.modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px 26px 0; }
+.modal-header h2 { margin: 4px 0 6px; font-family: var(--font-display); font-size: 21px; font-weight: 700; letter-spacing: -.025em; }
+.modal-header p { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
+.modal-panel .setup-form { padding: 20px 26px 8px; }
+.modal-panel .password-field { display: flex; gap: 8px; }
+.modal-panel .password-field input { flex: 1; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 18px 26px 24px; }
+.workspace-candidates { margin-top: 18px; }
+.candidate-list { display: grid; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; max-height: 260px; overflow: auto; }
+.candidate-list button { display: flex; width: 100%; align-items: center; gap: 12px; min-height: 52px; border: 1px solid var(--separator); border-radius: 12px; padding: 8px 12px; color: var(--text-primary); background: var(--material-regular); text-align: left; cursor: pointer; transition: border var(--transition-fast), background var(--transition-fast); }
+.candidate-list button:hover { background: var(--surface-hover); }
+.candidate-list button.active { border-color: var(--blue); background: var(--blue-soft); }
+.candidate-list strong, .candidate-list small { display: block; }
+.candidate-list strong { font-size: 12px; font-weight: 620; }
+.candidate-list small { max-width: 300px; margin-top: 2px; overflow: hidden; color: var(--text-tertiary); font-family: var(--font-mono); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.candidate-list em { margin-left: auto; flex: 0 0 auto; color: var(--text-tertiary); font-size: 9px; font-style: normal; }
+
 @media (max-width: 1260px) {
   :root { --sidebar-width: 232px; }
   .page { padding-inline: 26px; }
@@ -500,3 +520,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .setup-checkbox > span { margin: 0 !important; font-size: 10px !important; }
 .button:disabled { opacity: .58; cursor: wait; transform: none; }
 .settings-value { color: var(--text-secondary); font-size: 10px; font-weight: 620; }
+.removed-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.removed-item { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 56px; border: 1px solid var(--separator); border-radius: 12px; padding: 10px 14px; background: var(--material-regular); }
+.removed-item > div:first-child { min-width: 0; }
+.removed-item strong, .removed-item span { display: block; }
+.removed-item strong { font-size: 12px; font-weight: 620; }
+.removed-item span { max-width: 560px; margin-top: 3px; overflow: hidden; color: var(--text-tertiary); font-family: var(--font-mono); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.removed-actions { display: flex; flex: 0 0 auto; gap: 8px; }

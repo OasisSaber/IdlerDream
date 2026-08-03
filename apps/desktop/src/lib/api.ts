@@ -37,6 +37,30 @@ export async function initClient(): Promise<void> {
 
 export const isMockMode = () => mockMode;
 
+export interface SidecarEvent {
+  type: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export function subscribeEvents(onEvent: (event: SidecarEvent) => void): () => void {
+  if (mockMode || !readToken) return () => {};
+  const url = new URL(apiBase);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.pathname = "/api/v1/events";
+  url.searchParams.set("token", readToken);
+  const socket = new WebSocket(url.toString());
+  socket.onmessage = (message) => {
+    try {
+      const event = JSON.parse(String(message.data)) as SidecarEvent;
+      onEvent(event);
+    } catch {
+      // Ignore malformed frames; the polling fallback reconciles state.
+    }
+  };
+  return () => socket.close();
+}
+
 export async function fetchProjects(): Promise<ProjectEnvelope[]> {
   if (mockMode) return structuredClone(mockProjects);
   const response = await apiFetch("/api/v1/projects");
@@ -53,6 +77,49 @@ export async function fetchProject(id: string): Promise<ProjectEnvelope & { hist
   const response = await apiFetch(`/api/v1/projects/${encodeURIComponent(id)}`);
   if (!response.ok) throw new Error("无法读取项目详情");
   return response.json();
+}
+
+export async function fetchRemovedProjects(): Promise<import("@idlerdream/protocol").Project[]> {
+  if (mockMode) return [];
+  const response = await apiFetch("/api/v1/projects/removed");
+  if (!response.ok) throw new Error("无法读取回收站");
+  return response.json();
+}
+
+export async function removeProject(projectId: string): Promise<unknown> {
+  if (mockMode) return { project_id: projectId };
+  if (!window.idlerdream) throw new Error("IdlerDream control bridge is unavailable");
+  return window.idlerdream.control("project.remove", { project_id: projectId });
+}
+
+export async function addProject(path: string, name?: string): Promise<unknown> {
+  if (mockMode) return { id: `mock-${path}`, name: name ?? path.split(/[\\/]/).pop() ?? path, path };
+  if (!window.idlerdream) throw new Error("IdlerDream control bridge is unavailable");
+  return window.idlerdream.control("project.add", { path, ...(name ? { name } : {}) });
+}
+
+export async function discoverProjects(root: string): Promise<{ candidates: Array<{ path: string; name: string; markers: string }> }> {
+  if (mockMode) return { candidates: [{ path: root, name: root.split(/[\\/]/).pop() ?? root, markers: "demo" }] };
+  if (!window.idlerdream) throw new Error("IdlerDream control bridge is unavailable");
+  return window.idlerdream.control("project.discover", { root, max_depth: 4 }) as Promise<{ candidates: Array<{ path: string; name: string; markers: string }> }>;
+}
+
+export async function pickDirectory(): Promise<string | null> {
+  if (mockMode) return null;
+  if (!window.idlerdream) throw new Error("IdlerDream Electron bridge is unavailable");
+  return window.idlerdream.pickDirectory();
+}
+
+export async function restoreProject(projectId: string): Promise<unknown> {
+  if (mockMode) return { project_id: projectId };
+  if (!window.idlerdream) throw new Error("IdlerDream control bridge is unavailable");
+  return window.idlerdream.control("project.restore", { project_id: projectId });
+}
+
+export async function purgeProject(projectId: string): Promise<unknown> {
+  if (mockMode) return { project_id: projectId };
+  if (!window.idlerdream) throw new Error("IdlerDream control bridge is unavailable");
+  return window.idlerdream.control("project.purge", { project_id: projectId });
 }
 
 export async function fetchInspections(): Promise<InspectionJob[]> {

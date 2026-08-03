@@ -5,7 +5,6 @@ import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 DEFAULT_IGNORE_DIRS = {
     ".git", ".jj", ".idlerdream", "node_modules", ".venv", "venv", "env",
     "dist", "build", "out", ".next", ".turbo", ".cache", "coverage",
@@ -48,7 +47,7 @@ class Settings:
         return Path.home() / ".local" / "share" / "IdlerDream"
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         settings = cls()
         settings.profile = os.getenv("IDLERDREAM_PROFILE", settings.profile)
         settings.data_dir = cls.default_data_dir() / settings.profile

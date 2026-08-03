@@ -18,6 +18,7 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: pip install -e ".[dev]"
+        working-directory: apps/sidecar
       - run: python -m pytest apps/sidecar/tests
       - run: python scripts/verify_assets.py
       - run: ruff check apps/sidecar/idlerdream apps/sidecar/tests

@@ -92,6 +92,7 @@ class Project(BaseModel):
     current_cycle: ProjectCycle | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+    removed_at: datetime | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("path")
@@ -163,7 +164,7 @@ class AgentProcess(BaseModel):
     memory_bytes: int = 0
     started_at: datetime | None = None
     association_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
-    children: list["AgentProcess"] = Field(default_factory=list)
+    children: list[AgentProcess] = Field(default_factory=list)
 
 
 class FactBaseline(BaseModel):
@@ -173,7 +174,7 @@ class FactBaseline(BaseModel):
     observed_at: datetime = Field(default_factory=utc_now)
     vcs: VcsFacts = Field(default_factory=VcsFacts)
     tests: TestFacts = Field(default_factory=TestFacts)
-    changed_paths: list[str] = Field(default_factory=list)
+    considered_paths: list[str] = Field(default_factory=list)
     file_count_considered: int = 0
     agents: list[AgentProcess] = Field(default_factory=list)
     cycle: ProjectCycle | None = None

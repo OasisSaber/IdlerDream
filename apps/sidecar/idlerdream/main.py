@@ -28,6 +28,9 @@ def build_context(settings: Settings | None = None) -> AppContext:
     raw_reports = RawReportStore(
         settings.data_dir / "raw-reports", database, KeyProtector(settings.data_dir)
     )
+    # Reconcile weekly JSONL with the SQLite index before serving. This repairs
+    # crash artifacts where the file append and index insert were not atomic.
+    snapshots.reconcile()
     inspector = (
         MockInspectorAdapter()
         if settings.mock_inspector

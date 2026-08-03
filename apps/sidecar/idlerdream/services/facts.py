@@ -7,7 +7,15 @@ from ..collectors.files import WorkspaceDigest, collect_workspace_digest
 from ..collectors.processes import ProcessCollector
 from ..collectors.tests import collect_test_facts
 from ..collectors.vcs import collect_vcs_facts
-from ..models import AgentProcess, EvidenceKind, EvidenceRef, FactBaseline, Project, TestFacts, VcsFacts
+from ..models import (
+    AgentProcess,
+    EvidenceKind,
+    EvidenceRef,
+    FactBaseline,
+    Project,
+    TestFacts,
+    VcsFacts,
+)
 
 
 class FactService:
@@ -33,7 +41,7 @@ class FactService:
             vcs = vcs_result
 
         if isinstance(digest_result, BaseException):
-            raise RuntimeError(f"Workspace fingerprint collection failed: {digest_result}") from digest_result
+            raise RuntimeError(f"Workspace fingerprint collection failed: {digest_result}") from digest_result  # noqa: TRY004 - gather() returns exception instances
         digest: WorkspaceDigest = digest_result
         warnings.extend(digest.warnings)
 
@@ -67,7 +75,7 @@ class FactService:
             workspace_fingerprint=digest.fingerprint,
             vcs=vcs,
             tests=tests,
-            changed_paths=digest.changed_paths,
+            considered_paths=digest.considered_paths,
             file_count_considered=digest.considered_files,
             agents=agents,
             cycle=project.current_cycle,
