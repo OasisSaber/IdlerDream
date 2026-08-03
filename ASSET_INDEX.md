@@ -59,3 +59,9 @@ For focused work:
 ## 5. Validation status
 
 See `docs/VALIDATION_REPORT.md` for the exact checks run, passed checks and environment-limited checks.
+
+## 6. Release materials
+
+- `CHANGELOG.md` — change log for the v0.1.0 release
+- `docs/RELEASE_NOTES_v0.1.0.md` — full v0.1.0 release notes
+- `docs/RELEASE_CHECKLIST.md` — go/no-go gates and exact release commands for v0.1.0
