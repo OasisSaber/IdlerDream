@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import os
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -103,3 +106,125 @@ def test_raw_report_crypto_destroy(tmp_path: Path) -> None:
     with pytest.raises(KeyError):
         store.read(report_id)
     database.close()
+
+
+def test_raw_report_compact_removes_destroyed_and_expired_records(tmp_path: Path) -> None:
+    database = Database(tmp_path / "db.sqlite3")
+    project = Project(name="demo", path=str(tmp_path / "workspace"))
+    database.add_project(project)
+    store = RawReportStore(tmp_path / "reports", database, KeyProtector(tmp_path))
+    live_id = store.save(project.id, {"secret": "live"})
+    destroyed_id = store.save(project.id, {"secret": "destroyed"})
+    expired_id = store.save(project.id, {"secret": "expired"})
+    store.destroy(destroyed_id)
+    past = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    database._connection.execute(
+        "UPDATE raw_report_keys SET expires_at = ? WHERE report_id = ?",
+        (past, expired_id),
+    )
+    database._connection.commit()
+
+    removed, freed = store.compact()
+    assert removed == 2
+    assert freed > 0
+    assert store.read(live_id)["secret"] == "live"
+    with pytest.raises(KeyError):
+        store.read(destroyed_id)
+    with pytest.raises(KeyError):
+        store.read(expired_id)
+    bundle = next(store.directory.glob("*.bundle.jsonl"))
+    records = [json.loads(line) for line in bundle.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert [record["report_id"] for record in records] == [live_id]
+    database.close()
+
+
+def test_raw_report_compact_drops_whole_dead_bundle(tmp_path: Path) -> None:
+    database = Database(tmp_path / "db.sqlite3")
+    project = Project(name="demo", path=str(tmp_path / "workspace"))
+    database.add_project(project)
+    store = RawReportStore(tmp_path / "reports", database, KeyProtector(tmp_path))
+    report_id = store.save(project.id, {"secret": "only"})
+    store.destroy(report_id)
+
+    removed, freed = store.compact()
+    assert removed == 1
+    assert freed > 0
+    assert list(store.directory.glob("*.bundle.jsonl")) == []
+    database.close()
+
+
+def test_raw_report_quarantine_corrupted_container(tmp_path: Path) -> None:
+    database = Database(tmp_path / "db.sqlite3")
+    project = Project(name="demo", path=str(tmp_path / "workspace"))
+    database.add_project(project)
+    store = RawReportStore(tmp_path / "reports", database, KeyProtector(tmp_path))
+    healthy_id = store.save(project.id, {"secret": "healthy"})
+    bundle = next(store.directory.glob("*.bundle.jsonl"))
+    with bundle.open("a", encoding="utf-8") as handle:
+        handle.write('{"report_id": "broken-json\n')
+
+    moved = store.quarantine_corrupted()
+    assert moved == [bundle.name]
+    assert (store.quarantine_dir / bundle.name).exists()
+    assert not bundle.exists()
+    # The corrupted container's keys were destroyed so reads fail cleanly
+    # instead of raising file-not-found surprises.
+    with pytest.raises(KeyError):
+        store.read(healthy_id)
+    database.close()
+
+
+def test_raw_report_quarantine_preserves_healthy_bundles(tmp_path: Path) -> None:
+    database = Database(tmp_path / "db.sqlite3")
+    project = Project(name="demo", path=str(tmp_path / "workspace"))
+    database.add_project(project)
+    store = RawReportStore(tmp_path / "reports", database, KeyProtector(tmp_path))
+    report_id = store.save(project.id, {"secret": "fine"})
+    store.save(project.id, {"secret": "other"})
+
+    assert store.quarantine_corrupted() == []
+    assert store.read(report_id)["secret"] == "fine"
+    database.close()
+
+
+def test_raw_report_maintain_combines_steps(tmp_path: Path) -> None:
+    database = Database(tmp_path / "db.sqlite3")
+    project = Project(name="demo", path=str(tmp_path / "workspace"))
+    database.add_project(project)
+    store = RawReportStore(tmp_path / "reports", database, KeyProtector(tmp_path))
+    live_id = store.save(project.id, {"secret": "live"})
+    doomed_id = store.save(project.id, {"secret": "destroy me"})
+    store.destroy(doomed_id)
+
+    stats = store.maintain()
+    assert stats["records_removed"] >= 1
+    assert stats["keys_destroyed"] >= 0
+    assert store.read(live_id)["secret"] == "live"
+    database.close()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows DPAPI integration test")
+def test_windows_dpapi_key_round_trip(tmp_path: Path) -> None:
+    protector = KeyProtector(tmp_path)
+    wrapped = protector.protect(b"secret-key-bytes")
+    assert protector.unprotect(wrapped) == b"secret-key-bytes"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows DPAPI integration test")
+def test_windows_protection_never_uses_dev_key_fallback(tmp_path: Path) -> None:
+    from cryptography.exceptions import InvalidTag
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    protector = KeyProtector(tmp_path)
+    wrapped = protector.protect(b"secret-key-bytes")
+    assert protector.unprotect(wrapped) == b"secret-key-bytes"
+    # The AES-GCM development fallback key must never be materialized on the
+    # Windows production path.
+    assert not (tmp_path / "config" / ".dev-key").exists()
+    # A DPAPI blob is not a 12-byte-nonce AES-GCM payload, so attempting to
+    # decrypt it with the dev-key algorithm fails loudly instead of silently
+    # returning wrong key bytes.
+    nonce, body = wrapped[:12], wrapped[12:]
+    fallback_key = AESGCM.generate_key(bit_length=256)
+    with pytest.raises(InvalidTag):
+        AESGCM(fallback_key).decrypt(nonce, body, b"idlerdream-raw-report-key-v1")

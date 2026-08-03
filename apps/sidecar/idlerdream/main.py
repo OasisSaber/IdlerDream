@@ -9,6 +9,7 @@ from .database import Database
 from .events import EventBus
 from .inspection.opencode import MockInspectorAdapter, OpenCodeAdapter
 from .services.facts import FactService
+from .services.file_watcher import FileEventWatcher
 from .services.inspections import InspectionService
 from .services.monitoring import MonitoringService
 from .services.projects import ProjectService
@@ -58,7 +59,14 @@ def build_context(settings: Settings | None = None) -> AppContext:
         )
         await inspections.start(project_id, source="automatic")
 
-    monitoring = MonitoringService(projects, facts, database, events, auto_inspect=auto_inspect)
+    monitoring = MonitoringService(
+        projects,
+        facts,
+        database,
+        events,
+        auto_inspect=auto_inspect,
+        file_watcher=FileEventWatcher(projects, ignore_dirs=settings.ignore_dirs),
+    )
     return AppContext(
         settings=settings,
         database=database,

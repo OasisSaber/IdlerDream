@@ -16,7 +16,12 @@ from ..database import Database
 
 
 class KeyProtector:
-    """Protects small data keys with DPAPI on Windows and a local dev key elsewhere."""
+    """Protects small data keys with DPAPI on Windows and a local dev key elsewhere.
+
+    The AES-GCM dev key is a development convenience only. On Windows the code
+    must go through DPAPI; the fallback path is intentionally unreachable there
+    and must never be shipped as the Windows production path.
+    """
 
     def __init__(self, data_dir: Path) -> None:
         self.data_dir = data_dir
@@ -24,6 +29,7 @@ class KeyProtector:
 
     def protect(self, plaintext: bytes) -> bytes:
         if os.name == "nt":
+            self._assert_windows_production_path()
             return _dpapi_protect(plaintext)
         key = self._fallback_key()
         nonce = os.urandom(12)
@@ -31,10 +37,19 @@ class KeyProtector:
 
     def unprotect(self, ciphertext: bytes) -> bytes:
         if os.name == "nt":
+            self._assert_windows_production_path()
             return _dpapi_unprotect(ciphertext)
         key = self._fallback_key()
         nonce, body = ciphertext[:12], ciphertext[12:]
         return AESGCM(key).decrypt(nonce, body, b"idlerdream-raw-report-key-v1")
+
+    @staticmethod
+    def _assert_windows_production_path() -> None:
+        if not hasattr(ctypes, "windll") or not hasattr(ctypes.windll, "crypt32"):
+            raise RuntimeError(
+                "Windows DPAPI is unavailable; refusing to fall back to the "
+                "development key on the Windows production path"
+            )
 
     def _fallback_key(self) -> bytes:
         if self._fallback_key_path.exists():
@@ -53,6 +68,7 @@ class RawReportStore:
     def __init__(self, directory: Path, database: Database, protector: KeyProtector) -> None:
         self.directory = directory
         self.directory.mkdir(parents=True, exist_ok=True)
+        self.quarantine_dir = directory / "quarantine"
         self.database = database
         self.protector = protector
         self._lock = threading.RLock()
@@ -112,6 +128,147 @@ class RawReportStore:
         for row in rows:
             self.destroy(row["report_id"])
         return len(rows)
+
+    def maintain(self) -> dict[str, int]:
+        """Idle maintenance pass for the raw-report container.
+
+        1. Quarantine bundle files whose container is corrupted (an unparseable
+           JSONL line) so one damaged week cannot fail the whole store.
+        2. Destroy keys that have reached their retention expiry.
+        3. Compact dead ciphertext (records whose key is destroyed or expired)
+           out of the remaining week bundles.
+
+        Returns counts: ``quarantined`` files moved, ``keys_destroyed``,
+        ``records_removed`` by compaction, ``bytes_freed``.
+        """
+        with self._lock:
+            stats: dict[str, int] = {
+                "quarantined": 0,
+                "keys_destroyed": 0,
+                "records_removed": 0,
+                "bytes_freed": 0,
+            }
+            stats["quarantined"] += len(self.quarantine_corrupted())
+            stats["keys_destroyed"] += self.destroy_expired()
+            removed, freed = self.compact()
+            stats["records_removed"] += removed
+            stats["bytes_freed"] += freed
+            return stats
+
+    def quarantine_corrupted(self) -> list[str]:
+        """Move bundle files with unparseable records into ``quarantine/``.
+
+        A corrupted container means the ciphertext inside can no longer be
+        trusted or addressed reliably, so the referencing keys are destroyed as
+        well. The file itself is preserved for forensic recovery. Returns the
+        names of the quarantined files.
+        """
+        moved: list[str] = []
+        with self._lock:
+            for path in sorted(self.directory.glob("*.bundle.jsonl")):
+                corrupted = False
+                try:
+                    with path.open("r", encoding="utf-8") as handle:
+                        for line in handle:
+                            if not line.strip():
+                                continue
+                            try:
+                                record = json.loads(line)
+                            except ValueError:
+                                corrupted = True
+                                break
+                            if not isinstance(record, dict) or not record.get("report_id"):
+                                corrupted = True
+                                break
+                except OSError:
+                    corrupted = True
+                if not corrupted:
+                    continue
+                self.quarantine_dir.mkdir(parents=True, exist_ok=True)
+                target = self.quarantine_dir / path.name
+                counter = 1
+                while target.exists():
+                    target = self.quarantine_dir / f"{path.stem}-{counter}{path.suffix}"
+                    counter += 1
+                path.replace(target)
+                moved.append(target.name)
+                for row in self.database.raw_report_keys_for_week_file(path.name):
+                    if row["wrapped_key"] is not None:
+                        self.database.destroy_raw_report_key(
+                            row["report_id"], datetime.now(UTC).isoformat()
+                        )
+            return moved
+
+    def compact(self) -> tuple[int, int]:
+        """Remove dead ciphertext from week bundles.
+
+        A record is dead when its key row is missing, destroyed or expired.
+        Rewriting the bundle atomically (temp file + ``os.replace``) avoids
+        leaving the store in a partial state. Returns ``(records_removed,
+        bytes_freed)``.
+        """
+        removed = 0
+        freed = 0
+        with self._lock:
+            for path in sorted(self.directory.glob("*.bundle.jsonl")):
+                live_lines: list[str] = []
+                total_records = 0
+                try:
+                    with path.open("r", encoding="utf-8") as handle:
+                        for line in handle:
+                            if not line.strip():
+                                continue
+                            try:
+                                record = json.loads(line)
+                            except ValueError:
+                                continue  # quarantine_corrupted() owns this file
+                            if not isinstance(record, dict):
+                                continue
+                            report_id = record.get("report_id")
+                            if not report_id:
+                                continue
+                            total_records += 1
+                            if self._is_live(report_id):
+                                live_lines.append(line)
+                except OSError:
+                    continue
+                if total_records == 0:
+                    continue
+                if not live_lines:
+                    # Everything in this bundle is dead; remove the container.
+                    size = path.stat().st_size if path.exists() else 0
+                    path.unlink(missing_ok=True)
+                    freed += size
+                    removed += total_records
+                    continue
+                total_size = path.stat().st_size if path.exists() else 0
+                live_bytes = sum(len(line.encode("utf-8")) for line in live_lines)
+                dead_bytes = total_size - live_bytes
+                if dead_bytes <= 0:
+                    continue
+                temp = path.with_name(path.name + ".compact")
+                try:
+                    with temp.open("w", encoding="utf-8") as handle:
+                        for line in live_lines:
+                            handle.write(line)
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                    temp.replace(path)
+                finally:
+                    temp.unlink(missing_ok=True)
+                removed += total_records - len(live_lines)
+                freed += dead_bytes
+        return removed, freed
+
+    def _is_live(self, report_id: str) -> bool:
+        row = self.database.get_raw_report_key(report_id)
+        if row is None or row["wrapped_key"] is None or row["destroyed_at"] is not None:
+            return False
+        try:
+            expires = datetime.fromisoformat(row["expires_at"])
+        except ValueError:
+            return False
+        return expires >= datetime.now(UTC)
 
 
 def _week_filename(value: datetime) -> str:
