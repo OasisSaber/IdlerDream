@@ -4,7 +4,6 @@ import json
 
 from ..models import FactBaseline, InspectionPermission, Project
 
-
 SYSTEM_RULES = """
 You are the read-only project inspector for IdlerDream.
 

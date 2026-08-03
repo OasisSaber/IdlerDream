@@ -9,6 +9,7 @@ interface ProjectPageProps {
   onBack(): void;
   onInspect(): void;
   onOpenFolder(): void;
+  onRemove(): void;
 }
 
 function actorLabel(actor?: string) {
@@ -22,6 +23,7 @@ export function ProjectPage({
   onBack,
   onInspect,
   onOpenFolder,
+  onRemove,
 }: ProjectPageProps) {
   const { project, state, runtime } = envelope;
   const agents = runtime?.agents ?? [];
@@ -54,6 +56,10 @@ export function ProjectPage({
           <button className="button button--primary" onClick={onInspect}>
             <Icon name="refresh" />
             立即巡检
+          </button>
+          <button className="button button--danger" onClick={onRemove}>
+            <Icon name="trash" />
+            移除项目
           </button>
         </div>
       </header>
@@ -102,9 +108,9 @@ export function ProjectPage({
             </div>
           </div>
           <p>
-            {runtime?.changed_paths[0]
-              ? `关注文件 ${runtime.changed_paths[0]}`
-              : "暂无新的文件活动"}
+            {runtime?.considered_paths[0]
+              ? `参与基线 ${runtime.considered_paths[0]}`
+              : "暂无文件参与基线"}
           </p>
         </aside>
       </div>

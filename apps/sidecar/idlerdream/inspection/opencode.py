@@ -5,18 +5,37 @@ import json
 import os
 import shutil
 import signal
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Awaitable, Callable
 
 import psutil
 
 from ..models import FactBaseline, InspectionReport, Project
-from ..security.redaction import redact_text, redact_value
+from ..security.redaction import redact_report_text_fields, redact_text, redact_value
 from .prompt import build_inspection_prompt
 from .report_parser import extract_strings, parse_report_text
 
 ProgressCallback = Callable[[str, dict], Awaitable[None]]
+
+# Sensitive filename patterns that the inspector may never read, even inside an
+# allowed workspace. Expanded relative to the workspace root so the deny rules
+# are more specific than the workspace allow rule.
+SENSITIVE_READ_DENY_PATTERNS = (
+    ".env",
+    ".env.*",
+    "*.pem",
+    "*.key",
+    "*.pfx",
+    "*.p12",
+    "id_rsa*",
+    "credentials*",
+    "secrets*",
+    ".npmrc",
+    ".pypirc",
+    "*auth.json",
+    "*credential*.json",
+)
 
 
 @dataclass(slots=True)
@@ -120,10 +139,13 @@ class OpenCodeAdapter:
                     continue
                 try:
                     event = json.loads(decoded)
-                    events.append(redact_value(event))
-                    text_fragments.extend(extract_strings(event))
+                    redacted = redact_value(event)
+                    events.append(redacted)
+                    # Extract from the redacted event so secrets echoed back by
+                    # the model never reach the parsed report text.
+                    text_fragments.extend(extract_strings(redacted))
                     if on_progress:
-                        await on_progress("opencode_event", _progress_payload(event))
+                        await on_progress("opencode_event", _progress_payload(redacted))
                 except json.JSONDecodeError:
                     text_fragments.append(decoded)
                     if on_progress:
@@ -152,6 +174,8 @@ class OpenCodeAdapter:
             self._running.pop(job_id, None)
 
         parsed = parse_report_text("\n".join(text_fragments))
+        if parsed.report:
+            redact_report_text_fields(parsed.report)
         if parsed.report and parsed.report.project_id != project.id:
             parsed.report = None
             parsed.error = "Inspection report project_id does not match the requested project"
@@ -185,20 +209,19 @@ class OpenCodeAdapter:
     def _isolated_environment(self, project: Project) -> dict[str, str]:
         workspace = Path(project.path).resolve(strict=False).as_posix()
         workspace_pattern = f"{workspace}/**"
-        read_permission = {
-            "*": "allow",
-            "**/.env": "deny", "**/.env.*": "deny", "**/*.pem": "deny",
-            "**/*.key": "deny", "**/*.pfx": "deny", "**/*.p12": "deny",
-            "**/id_rsa*": "deny", "**/credentials*": "deny", "**/secrets*": "deny",
-            "**/.npmrc": "deny", "**/.pypirc": "deny", "**/*auth.json": "deny",
-            "**/*credential*.json": "deny",
-        }
+        # Read is scoped to the workspace only. Sensitive patterns are repeated
+        # inside the workspace with more specific globs so they take precedence
+        # over the workspace allow rule regardless of matcher specificity order.
+        read_permission: dict[str, str] = {"*": "deny", workspace_pattern: "allow"}
+        for pattern in SENSITIVE_READ_DENY_PATTERNS:
+            read_permission[f"{workspace}/{pattern}"] = "deny"
+            read_permission[f"{workspace}/**/{pattern}"] = "deny"
         permission = {
             "*": "deny",
             "read": read_permission,
-            "glob": "allow",
-            "grep": "allow",
-            "list": "allow",
+            "glob": {"*": "deny", workspace_pattern: "allow"},
+            "grep": {"*": "deny", workspace_pattern: "allow"},
+            "list": {"*": "deny", workspace_pattern: "allow"},
             "edit": "deny",
             "task": "deny",
             "external_directory": {"*": "deny", workspace_pattern: "allow"},

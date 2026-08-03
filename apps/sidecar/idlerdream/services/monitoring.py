@@ -63,7 +63,7 @@ class MonitoringService:
             previous = self.runtime.get(project.id)
             try:
                 current = await self.facts.collect(project)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - one project must not stop the monitor loop
                 await self.events.publish("monitor.error", {"project_id": str(project.id), "error": str(exc)})
                 continue
             self.runtime[project.id] = current

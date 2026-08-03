@@ -35,6 +35,7 @@ def test_redaction_removes_common_secrets() -> None:
 
 def test_opencode_inspector_disables_shell_and_isolates_home(tmp_path: Path) -> None:
     import json
+
     from idlerdream.inspection.opencode import OpenCodeAdapter
     from idlerdream.models import Project
 
@@ -47,3 +48,45 @@ def test_opencode_inspector_disables_shell_and_isolates_home(tmp_path: Path) -> 
     assert permission["edit"] == "deny"
     assert env["HOME"] != str(Path.home())
     assert str(workspace.resolve(strict=False).as_posix()) in json.dumps(permission)
+
+
+def test_opencode_read_permission_is_workspace_scoped(tmp_path: Path) -> None:
+    import json
+
+    from idlerdream.inspection.opencode import OpenCodeAdapter
+    from idlerdream.models import Project
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    adapter = OpenCodeAdapter(config_dir=tmp_path / "inspector")
+    env = adapter._isolated_environment(Project(name="demo", path=str(workspace)))
+    read = json.loads(env["OPENCODE_PERMISSION"])["read"]
+    workspace_pattern = f"{workspace.resolve(strict=False).as_posix()}/**"
+    assert read["*"] == "deny"
+    assert read[workspace_pattern] == "allow"
+    # Sensitive patterns stay denied even inside the allowed workspace.
+    root = workspace.resolve(strict=False).as_posix()
+    assert f"{root}/.env" in read
+    assert read[f"{root}/.env"] == "deny"
+    assert any(key.endswith("/**/*.pem") for key in read)
+
+
+def test_report_text_fields_are_redacted() -> None:
+    from idlerdream.models import NextAction, NextActor
+    from idlerdream.security.redaction import redact_report_text_fields
+
+    report = type(
+        "Report",
+        (),
+        {
+            "summary": "auth uses api_key=supersecret123",
+            "phase": "ok",
+            "next_action": NextAction(actor=NextActor.USER, action="rotate token sk-proj-abcdefghijklmno123"),
+            "facts": [],
+            "inferences": [],
+            "uncertainties": [],
+        },
+    )()
+    redact_report_text_fields(report)
+    assert "supersecret123" not in report.summary
+    assert "sk-proj" not in report.next_action.action

@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-import json
 import sqlite3
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 from uuid import UUID
 
 from .models import CurrentProjectState, Project, SnapshotEvent
 
-
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class Database:
@@ -55,7 +53,8 @@ class Database:
                     name TEXT NOT NULL,
                     project_json TEXT NOT NULL,
                     created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
+                    updated_at TEXT NOT NULL,
+                    removed_at TEXT
                 );
 
                 CREATE TABLE IF NOT EXISTS current_project_state (
@@ -98,10 +97,21 @@ class Database:
                 );
                 """
             )
+            self._migrate_projects_removed_at(connection)
             connection.execute(
                 "INSERT OR REPLACE INTO metadata(key, value) VALUES('schema_version', ?)",
                 (str(SCHEMA_VERSION),),
             )
+
+    @staticmethod
+    def _migrate_projects_removed_at(connection: sqlite3.Connection) -> None:
+        """Add the removed_at column to databases created before schema v2."""
+        columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(projects)").fetchall()
+        }
+        if "removed_at" not in columns:
+            connection.execute("ALTER TABLE projects ADD COLUMN removed_at TEXT")
 
     def add_project(self, project: Project) -> Project:
         payload = project.model_dump_json()
@@ -127,7 +137,7 @@ class Database:
             cursor = connection.execute(
                 """
                 UPDATE projects
-                SET path = ?, name = ?, project_json = ?, updated_at = ?
+                SET path = ?, name = ?, project_json = ?, updated_at = ?, removed_at = ?
                 WHERE id = ?
                 """,
                 (
@@ -135,6 +145,7 @@ class Database:
                     project.name,
                     project.model_dump_json(),
                     project.updated_at.isoformat(),
+                    project.removed_at.isoformat() if project.removed_at else None,
                     str(project.id),
                 ),
             )
@@ -148,13 +159,38 @@ class Database:
         ).fetchone()
         return Project.model_validate_json(row["project_json"]) if row else None
 
-    def list_projects(self) -> list[Project]:
+    def list_projects(self, include_removed: bool = False) -> list[Project]:
+        query = "SELECT project_json FROM projects"
+        if not include_removed:
+            query += " WHERE removed_at IS NULL"
+        query += " ORDER BY updated_at DESC"
+        rows = self._connection.execute(query).fetchall()
+        return [Project.model_validate_json(row["project_json"]) for row in rows]
+
+    def list_removed_projects(self) -> list[Project]:
         rows = self._connection.execute(
-            "SELECT project_json FROM projects ORDER BY updated_at DESC"
+            "SELECT project_json FROM projects WHERE removed_at IS NOT NULL ORDER BY removed_at DESC"
         ).fetchall()
         return [Project.model_validate_json(row["project_json"]) for row in rows]
 
-    def delete_project(self, project_id: UUID | str) -> None:
+    def mark_project_removed(self, project_id: UUID | str, removed_at: str) -> None:
+        with self.transaction() as connection:
+            cursor = connection.execute(
+                "UPDATE projects SET removed_at = ? WHERE id = ?",
+                (removed_at, str(project_id)),
+            )
+            if cursor.rowcount == 0:
+                raise KeyError(f"Project not found: {project_id}")
+
+    def restore_project(self, project_id: UUID | str) -> None:
+        with self.transaction() as connection:
+            cursor = connection.execute(
+                "UPDATE projects SET removed_at = NULL WHERE id = ?", (str(project_id),)
+            )
+            if cursor.rowcount == 0:
+                raise KeyError(f"Project not found: {project_id}")
+
+    def purge_project(self, project_id: UUID | str) -> None:
         with self.transaction() as connection:
             connection.execute("DELETE FROM projects WHERE id = ?", (str(project_id),))
 
@@ -219,6 +255,12 @@ class Database:
             """,
             (str(project_id),),
         ).fetchall()
+
+    def get_snapshot_index(self, snapshot_id: UUID | str) -> sqlite3.Row | None:
+        return self._connection.execute(
+            "SELECT * FROM snapshot_index WHERE snapshot_id = ?",
+            (str(snapshot_id),),
+        ).fetchone()
 
     def mark_snapshot_deleted(self, snapshot_id: UUID | str) -> None:
         with self.transaction() as connection:

@@ -73,11 +73,10 @@ class RawReportStore:
             "nonce": base64.b64encode(nonce).decode(),
             "ciphertext": base64.b64encode(ciphertext).decode(),
         }
-        with self._lock:
-            with (self.directory / week_file).open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(record, separators=(",", ":")) + "\n")
-                handle.flush()
-                os.fsync(handle.fileno())
+        with self._lock, (self.directory / week_file).open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, separators=(",", ":")) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
         self.database.save_raw_report_key(
             report_id,
             str(project_id),

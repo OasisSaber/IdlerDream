@@ -59,7 +59,7 @@ class ControlServer:
             response = await self._dispatch_line(line)
             writer.write(json.dumps(response, ensure_ascii=False).encode() + b"\n")
             await writer.drain()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - control boundary must answer the client
             writer.write(json.dumps({"ok": False, "error": str(exc)}).encode() + b"\n")
             await writer.drain()
         finally:
@@ -113,7 +113,7 @@ class ControlServer:
                 future = asyncio.run_coroutine_threadsafe(self._dispatch_line(line), self._loop)
                 try:
                     response = future.result(timeout=30)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - pipe client must receive an error reply
                     response = {"ok": False, "error": str(exc)}
                 win32file.WriteFile(
                     pipe, json.dumps(response, ensure_ascii=False).encode("utf-8") + b"\n"
@@ -121,6 +121,6 @@ class ControlServer:
             finally:
                 try:
                     win32pipe.DisconnectNamedPipe(pipe)
-                except Exception:
+                except Exception:  # noqa: BLE001,S110 - best-effort pipe teardown
                     pass
                 win32file.CloseHandle(pipe)

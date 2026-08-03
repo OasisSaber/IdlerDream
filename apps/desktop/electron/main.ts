@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme, shell, Tray } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, shell, Tray } from "electron";
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
@@ -16,6 +16,7 @@ const READ_TOKEN = crypto.randomBytes(32).toString("hex");
 const CONTROL_PIPE = `\\\\.\\pipe\\IdlerDream-${PROFILE}`;
 const CONTROL_COMMANDS = new Set([
   "ping", "project.add", "project.discover", "project.remove",
+  "project.restore", "project.purge", "project.list_removed",
   "inspection.start", "inspection.cancel",
 ]);
 
@@ -167,6 +168,18 @@ if (!gotSingleInstanceLock) {
       const error = await shell.openPath(folderPath);
       if (error) throw new Error(error);
       return "";
+    });
+    ipcMain.handle("idlerdream:pick-directory", async (event) => {
+      const parent = BrowserWindow.fromWebContents(event.sender);
+      const options: Electron.OpenDialogOptions = {
+        title: "选择要监控的工作区目录",
+        properties: ["openDirectory", "createDirectory"],
+      };
+      const result = parent
+        ? await dialog.showOpenDialog(parent, options)
+        : await dialog.showOpenDialog(options);
+      if (result.canceled || !result.filePaths.length) return null;
+      return result.filePaths[0];
     });
     ipcMain.handle("idlerdream:app-info", () => ({
       version: app.getVersion(),

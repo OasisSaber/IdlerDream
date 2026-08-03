@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from uuid import uuid4
-
 from idlerdream.models import (
     CoreStatus,
     FactBaseline,
     InspectionReport,
     Project,
+)
+from idlerdream.models import (
     TestFacts as ModelTestFacts,
 )
 from idlerdream.state.merger import invalidate_for_change, merge_state

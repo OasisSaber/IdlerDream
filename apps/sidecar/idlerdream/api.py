@@ -45,9 +45,20 @@ async def handle_control(context: AppContext, request: dict[str, Any]) -> dict[s
     if command == "project.discover":
         return {"candidates": context.projects.discover(payload["root"], payload.get("max_depth", 4))}
     if command == "project.remove":
-        context.projects.remove(payload["project_id"])
-        await context.events.publish("project.removed", {"project_id": payload["project_id"]})
-        return {"project_id": payload["project_id"]}
+        project = context.projects.remove(payload["project_id"])
+        await context.events.publish("project.removed", {"project_id": str(project.id)})
+        return project.model_dump(mode="json")
+    if command == "project.restore":
+        project = context.projects.restore(payload["project_id"])
+        await context.events.publish("project.restored", {"project_id": str(project.id)})
+        return project.model_dump(mode="json")
+    if command == "project.purge":
+        project_id = str(payload["project_id"])
+        context.projects.purge(project_id)
+        await context.events.publish("project.purged", {"project_id": project_id})
+        return {"project_id": project_id}
+    if command == "project.list_removed":
+        return [project.model_dump(mode="json") for project in context.projects.list_removed()]
     if command == "inspection.start":
         job = await context.inspections.start(payload["project_id"], source=payload.get("source", "manual"))
         return job.model_dump(mode="json")
@@ -116,6 +127,10 @@ def create_app(context: AppContext) -> FastAPI:
             }
             for project in context.projects.list()
         ]
+
+    @app.get("/api/v1/projects/removed", dependencies=[Depends(require_read_token)])
+    async def list_removed_projects() -> list[dict[str, Any]]:
+        return [project.model_dump(mode="json") for project in context.projects.list_removed()]
 
     @app.get("/api/v1/projects/{project_id}", dependencies=[Depends(require_read_token)])
     async def get_project(project_id: UUID) -> dict[str, Any]:

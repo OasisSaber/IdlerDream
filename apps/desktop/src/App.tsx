@@ -1,5 +1,6 @@
 import type { InspectionJob, ProjectEnvelope } from "@idlerdream/protocol";
 import { useEffect, useMemo, useState } from "react";
+import { AddWorkspaceModal } from "./components/AddWorkspaceModal";
 import { InspectionPanel } from "./components/InspectionPanel";
 import { DashboardPage } from "./pages/DashboardPage";
 import { OnboardingPage } from "./pages/OnboardingPage";
@@ -12,7 +13,10 @@ import {
   initClient,
   isMockMode,
   openFolder,
+  removeProject,
   startInspection,
+  subscribeEvents,
+  type SidecarEvent,
 } from "./lib/api";
 import { Icon } from "./lib/icons";
 
@@ -30,6 +34,7 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
 
   const reload = async () => {
     const [projectData, jobData] = await Promise.all([
@@ -43,12 +48,53 @@ export default function App() {
   useEffect(() => {
     let disposed = false;
     let timer: number | undefined;
+    let unsubscribe: (() => void) | undefined;
+
+    const applyEvent = (event: SidecarEvent) => {
+      if (disposed) return;
+      setProjects((current) => {
+        const projectId = String(event.payload?.project_id ?? "");
+        switch (event.type) {
+          case "project.runtime.updated":
+            return current.map((item) =>
+              item.project.id === projectId
+                ? { ...item, runtime: (event.payload.baseline as never) ?? item.runtime }
+                : item,
+            );
+          case "project.state.updated":
+            return current.map((item) =>
+              item.project.id === projectId
+                ? { ...item, state: (event.payload.state as never) ?? item.state }
+                : item,
+            );
+          case "inspection.job":
+            setJobs((jobs) => {
+              const job = event.payload as unknown as InspectionJob;
+              if (job && !jobs.some((item) => item.id === job.id)) {
+                return [job, ...jobs].slice(0, 60);
+              }
+              return jobs.map((item) => (item.id === job?.id ? job : item));
+            });
+            return current;
+          case "project.added":
+          case "project.removed":
+          case "project.restored":
+          case "project.purged":
+            void reload().catch(() => undefined);
+            return current;
+          default:
+            return current;
+        }
+      });
+    };
+
     const connect = async () => {
       try {
         await initClient();
         await reload();
         if (disposed) return;
         setConnectionError(null);
+        unsubscribe = subscribeEvents(applyEvent);
         timer = window.setInterval(() => {
           void reload().catch((error: unknown) => {
             if (!disposed) setConnectionError(error instanceof Error ? error.message : String(error));
@@ -63,6 +109,7 @@ export default function App() {
     void connect();
     return () => {
       disposed = true;
+      unsubscribe?.();
       if (timer !== undefined) window.clearInterval(timer);
     };
   }, []);
@@ -107,6 +154,19 @@ export default function App() {
   const openProject = (projectId: string) => {
     setSelectedId(projectId);
     setView("project");
+  };
+
+  const removeSelectedProject = async () => {
+    if (!selected) return;
+    const confirmed = window.confirm(
+      `将项目“${selected.project.name}”移入回收站？\n工作区目录不会被删除，历史快照仍会保留。`,
+    );
+    if (!confirmed) return;
+    await removeProject(selected.project.id);
+    notify("已移入回收站");
+    setView("dashboard");
+    setSelectedId(null);
+    await reload();
   };
 
   if (!onboarded) {
@@ -227,7 +287,7 @@ export default function App() {
             projects={filtered}
             onOpen={openProject}
             onInspect={(projectId) => void inspect(projectId)}
-            onAdd={() => notify("添加工作区向导由 Electron Main 与 Sidecar 控制通道接入")}
+            onAdd={() => setShowAdd(true)}
           />
         ) : view === "project" && selected ? (
           <ProjectPage
@@ -235,6 +295,7 @@ export default function App() {
             onBack={() => setView("dashboard")}
             onInspect={() => void inspect(selected.project.id)}
             onOpenFolder={() => void openFolder(selected.project.path)}
+            onRemove={() => void removeSelectedProject()}
           />
         ) : (
           <SettingsPage />
@@ -251,6 +312,17 @@ export default function App() {
               void reload();
             });
           }}
+        />
+      )}
+
+      {showAdd && (
+        <AddWorkspaceModal
+          onClose={() => setShowAdd(false)}
+          onAdded={async () => {
+            await reload();
+            notify("工作区已添加");
+          }}
+          onError={(message) => notify(`添加失败：${message}`)}
         />
       )}
 

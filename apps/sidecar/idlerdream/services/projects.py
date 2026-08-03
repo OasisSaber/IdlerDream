@@ -30,12 +30,40 @@ class ProjectService:
     def list(self) -> list[Project]:
         return self.database.list_projects()
 
+    def list_removed(self) -> list[Project]:
+        return self.database.list_removed_projects()
+
     def update(self, project: Project) -> Project:
         project.updated_at = datetime.now(UTC)
         return self.database.update_project(project)
 
-    def remove(self, project_id: UUID | str) -> None:
-        self.database.delete_project(project_id)
+    def remove(self, project_id: UUID | str) -> Project:
+        """Move a project to the recycle bin.
+
+        The workspace directory is never deleted. Snapshot history and the
+        current state are retained until the project is permanently purged.
+        """
+        project = self.get(project_id)
+        if project.removed_at is not None:
+            return project
+        project.removed_at = datetime.now(UTC)
+        project.updated_at = datetime.now(UTC)
+        self.database.mark_project_removed(project_id, project.removed_at.isoformat())
+        return self.database.update_project(project)
+
+    def restore(self, project_id: UUID | str) -> Project:
+        project = self.get(project_id)
+        if project.removed_at is None:
+            return project
+        project.removed_at = None
+        self.database.restore_project(project_id)
+        return self.database.update_project(project)
+
+    def purge(self, project_id: UUID | str) -> None:
+        """Permanently delete the project row, its current state and snapshot
+        index entries. The workspace directory itself is never touched."""
+        self.get(project_id)
+        self.database.purge_project(project_id)
 
     def discover(self, root: str, max_depth: int = 4) -> list[dict[str, str]]:
         base = Path(root).expanduser().resolve(strict=False)

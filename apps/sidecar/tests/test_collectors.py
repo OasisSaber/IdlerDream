@@ -63,7 +63,7 @@ def test_workspace_digest_excludes_sensitive_ignored_and_symlinked_files(tmp_pat
 
     digest = collect_workspace_digest(workspace)
     assert digest.considered_files == 1
-    assert digest.changed_paths == ["src/main.py"]
+    assert digest.considered_paths == ["src/main.py"]
     assert len(digest.fingerprint) == 64
 
 
@@ -80,7 +80,7 @@ def test_workspace_digest_changes_when_candidate_file_changes(tmp_path: Path) ->
 
 
 def test_collect_git_facts(tmp_path: Path) -> None:
-    if subprocess.run(["git", "--version"], capture_output=True).returncode != 0:
+    if subprocess.run(["git", "--version"], capture_output=True, check=False).returncode != 0:
         pytest.skip("git is unavailable")
 
     workspace = tmp_path / "repo"

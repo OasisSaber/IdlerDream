@@ -157,7 +157,7 @@ class InspectionService:
             job.stage = "cancelled"
             job.finished_at = datetime.now(UTC)
             await self._publish_job(job)
-        except Exception as exc:  # defensive boundary for the sidecar process
+        except Exception as exc:  # noqa: BLE001 - defensive boundary for the sidecar process
             job.status = "failed"
             job.stage = "failed"
             job.error = str(exc)

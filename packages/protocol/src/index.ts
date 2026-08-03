@@ -45,6 +45,7 @@ export interface Project {
   current_cycle?: ProjectCycle | null;
   created_at: string;
   updated_at: string;
+  removed_at?: string | null;
   metadata: Record<string, unknown>;
 }
 
@@ -103,7 +104,7 @@ export interface FactBaseline {
     observed_at?: string | null;
     summary: string;
   };
-  changed_paths: string[];
+  considered_paths: string[];
   file_count_considered: number;
   agents: AgentProcess[];
   warnings: string[];
