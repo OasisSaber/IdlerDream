@@ -15,3 +15,6 @@ __pycache__/
 coverage/
 htmlcov/
 idlerdream-data/
+# PyInstaller build intermediates
+build/
+*.spec

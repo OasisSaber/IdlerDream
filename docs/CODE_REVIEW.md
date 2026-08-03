@@ -225,6 +225,8 @@ The asset environment could not complete npm dependency installation, Electron c
 
 **Required work:** run the release checklist on a clean Windows 10/11 VM, including install, first-run, tray lifecycle, uninstall-with-data-preservation and Sidecar crash recovery.
 
+**Progress:** CI now automates the release acceptance baseline on a clean `windows-latest` runner (`.github/workflows/ci.yml` job `windows-installer`): it builds the Sidecar executable with PyInstaller, packages the NSIS per-user installer with electron-builder and runs `scripts/smoke-installer.ps1`, which silently installs, verifies the installed layout (main exe, bundled Sidecar, uninstaller, Start Menu/Desktop shortcuts, HKCU Uninstall key), launches the packaged app and confirms it stays alive (first-run + packaged Sidecar start), then silently uninstalls and verifies removal while preserving user data. A clean-VM tray lifecycle and Sidecar crash-recovery pass are still required before release.
+
 ## Validation performed after review
 
 - Python Sidecar unit tests: **21 passed**
