@@ -21,7 +21,7 @@ jobs:
         working-directory: apps/sidecar
       - run: python -m pytest apps/sidecar/tests
       - run: python scripts/verify_assets.py
-      - run: ruff check apps/sidecar/idlerdream apps/sidecar/tests
+      - run: ruff check apps/sidecar/idlerdream apps/sidecar/tests apps/sidecar/launcher.py
 
   desktop:
     runs-on: windows-latest
@@ -33,3 +33,17 @@ jobs:
       - run: npm install
       - run: npm run typecheck
       - run: npm run build
+
+  # CR-24: prove the packaged Sidecar exe starts and serves the control pipe.
+  # A bare `idlerdream/main.py` entry crashes under PyInstaller (issue #13), so
+  # this job rebuilds the exe and runs the packaged-exe smoke test on Windows.
+  sidecar-packaging:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip
+      - run: powershell -File scripts/build-sidecar.ps1
+      - run: python -m pytest apps/sidecar/tests -k packaged
