@@ -79,7 +79,9 @@ def create_app(context: AppContext) -> FastAPI:
         )
         context.control = control
         await control.start()
-        context.raw_reports.destroy_expired()
+        # Idle maintenance: quarantine corrupted raw-report containers, destroy
+        # expired keys and compact dead ciphertext out of the week bundles.
+        context.raw_reports.maintain()
         await context.monitoring.start()
         try:
             yield

@@ -4,10 +4,11 @@ import sqlite3
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
-from .models import CurrentProjectState, Project, SnapshotEvent
+from .models import AgentProcess, AgentSession, CurrentProjectState, Project, SnapshotEvent
 
 SCHEMA_VERSION = 2
 
@@ -293,6 +294,11 @@ class Database:
             "SELECT * FROM raw_report_keys WHERE report_id = ?", (report_id,)
         ).fetchone()
 
+    def raw_report_keys_for_week_file(self, week_file: str) -> list[sqlite3.Row]:
+        return self._connection.execute(
+            "SELECT * FROM raw_report_keys WHERE week_file = ?", (week_file,)
+        ).fetchall()
+
     def destroy_raw_report_key(self, report_id: str, destroyed_at: str) -> None:
         with self.transaction() as connection:
             connection.execute(
@@ -312,6 +318,54 @@ class Database:
             """,
             (now_iso,),
         ).fetchall()
+
+    def record_agent_session(self, session: AgentSession) -> None:
+        with self.transaction() as connection:
+            connection.execute(
+                """
+                INSERT INTO agent_sessions(
+                    session_id, project_id, process_pid, session_json, started_at, exited_at
+                ) VALUES(?, ?, ?, ?, ?, ?)
+                ON CONFLICT(session_id) DO UPDATE SET
+                    exited_at = excluded.exited_at,
+                    session_json = excluded.session_json
+                """,
+                (
+                    str(session.session_id),
+                    str(session.project_id),
+                    session.process_pid,
+                    session.process.model_dump_json(),
+                    session.started_at.isoformat(),
+                    session.exited_at.isoformat() if session.exited_at else None,
+                ),
+            )
+
+    def list_agent_sessions(self, project_id: UUID | str) -> list[AgentSession]:
+        rows = self._connection.execute(
+            """
+            SELECT session_id, project_id, process_pid, session_json, started_at, exited_at
+            FROM agent_sessions
+            WHERE project_id = ?
+            ORDER BY started_at DESC
+            """,
+            (str(project_id),),
+        ).fetchall()
+        sessions: list[AgentSession] = []
+        for row in rows:
+            process = AgentProcess.model_validate_json(row["session_json"])
+            sessions.append(
+                AgentSession(
+                    session_id=UUID(row["session_id"]),
+                    project_id=UUID(row["project_id"]),
+                    process_pid=row["process_pid"],
+                    process=process,
+                    started_at=datetime.fromisoformat(row["started_at"]),
+                    exited_at=(
+                        datetime.fromisoformat(row["exited_at"]) if row["exited_at"] else None
+                    ),
+                )
+            )
+        return sessions
 
     def export_debug_summary(self) -> dict[str, object]:
         return {

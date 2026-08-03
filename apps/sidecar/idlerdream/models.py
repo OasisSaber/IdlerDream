@@ -167,6 +167,22 @@ class AgentProcess(BaseModel):
     children: list[AgentProcess] = Field(default_factory=list)
 
 
+class AgentSession(BaseModel):
+    """Aggregated record of one observed Agent process run (CR-21).
+
+    When an associated Agent process disappears between monitoring passes its
+    last known snapshot is recorded here with an exit time so the UI can show
+    recent activity instead of forgetting the process entirely.
+    """
+
+    session_id: UUID = Field(default_factory=uuid4)
+    project_id: UUID
+    process_pid: int
+    process: AgentProcess
+    started_at: datetime = Field(default_factory=utc_now)
+    exited_at: datetime | None = None
+
+
 class FactBaseline(BaseModel):
     project_id: UUID
     workspace_path: str
