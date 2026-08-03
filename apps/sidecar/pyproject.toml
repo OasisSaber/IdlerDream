@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "idlerdream-sidecar"
+version = "0.1.0"
+description = "Windows-local monitoring and inspection sidecar for IdlerDream."
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.128,<1",
+  "uvicorn[standard]>=0.35,<1",
+  "pydantic>=2.10,<3",
+  "psutil>=6,<8",
+  "cryptography>=44,<47",
+  "watchdog>=6,<7; platform_system == 'Windows'",
+  "pywin32>=308; platform_system == 'Windows'"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+  "httpx>=0.27,<1",
+  "ruff>=0.9,<1",
+  "pyinstaller>=6,<7"
+]
+
+[project.scripts]
+idlerdream-sidecar = "idlerdream.main:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["idlerdream"]

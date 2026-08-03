@@ -1,0 +1,302 @@
+{
+  "$defs": {
+    "CoreStatus": {
+      "enum": [
+        "unknown",
+        "not_started",
+        "in_progress",
+        "waiting_user",
+        "waiting_external",
+        "blocked",
+        "conflict",
+        "completed"
+      ],
+      "title": "CoreStatus",
+      "type": "string"
+    },
+    "EvidenceKind": {
+      "enum": [
+        "test",
+        "build",
+        "vcs",
+        "file",
+        "process",
+        "plan",
+        "snapshot",
+        "model"
+      ],
+      "title": "EvidenceKind",
+      "type": "string"
+    },
+    "EvidenceRef": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/EvidenceKind"
+        },
+        "summary": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "line_start": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Start"
+        },
+        "line_end": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line End"
+        },
+        "command": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Command"
+        },
+        "content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "deterministic": {
+          "default": true,
+          "title": "Deterministic",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "summary"
+      ],
+      "title": "EvidenceRef",
+      "type": "object"
+    },
+    "NextAction": {
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/NextActor"
+        },
+        "action": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Action",
+          "type": "string"
+        },
+        "waiting_condition": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Waiting Condition"
+        }
+      },
+      "required": [
+        "actor",
+        "action"
+      ],
+      "title": "NextAction",
+      "type": "object"
+    },
+    "NextActor": {
+      "enum": [
+        "user",
+        "agent",
+        "none"
+      ],
+      "title": "NextActor",
+      "type": "string"
+    },
+    "ProgressState": {
+      "properties": {
+        "mode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "acceptance_count"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "completed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completed"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total"
+        }
+      },
+      "title": "ProgressState",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "project_id": {
+      "format": "uuid",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "workspace_fingerprint": {
+      "title": "Workspace Fingerprint",
+      "type": "string"
+    },
+    "core_status": {
+      "$ref": "#/$defs/CoreStatus"
+    },
+    "phase": {
+      "default": "unknown",
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Phase",
+      "type": "string"
+    },
+    "summary": {
+      "maxLength": 3000,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "next_action": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NextAction"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "confidence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "facts": {
+      "items": {
+        "$ref": "#/$defs/EvidenceRef"
+      },
+      "title": "Facts",
+      "type": "array"
+    },
+    "inferences": {
+      "items": {
+        "$ref": "#/$defs/EvidenceRef"
+      },
+      "title": "Inferences",
+      "type": "array"
+    },
+    "uncertainties": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Uncertainties",
+      "type": "array"
+    },
+    "progress": {
+      "$ref": "#/$defs/ProgressState"
+    },
+    "analysis_version": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Analysis Version",
+      "type": "object"
+    },
+    "validation_warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Validation Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "project_id",
+    "workspace_fingerprint",
+    "core_status",
+    "summary",
+    "confidence"
+  ],
+  "title": "InspectionReport",
+  "type": "object"
+}

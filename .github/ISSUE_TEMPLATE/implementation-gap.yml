@@ -1,0 +1,22 @@
+name: Implementation gap
+about: Track a reviewed IdlerDream production gap
+body:
+  - type: input
+    id: review_id
+    attributes:
+      label: Code review finding
+      placeholder: CR-14
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Required implementation
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance tests
+    validations:
+      required: true

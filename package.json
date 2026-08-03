@@ -1,0 +1,22 @@
+{
+  "name": "idlerdream",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "Local-first dashboard for monitoring workspaces and coding agents.",
+  "workspaces": [
+    "apps/desktop",
+    "packages/protocol"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @idlerdream/desktop",
+    "build": "npm run build -w @idlerdream/protocol && npm run build -w @idlerdream/desktop",
+    "typecheck": "npm run typecheck -w @idlerdream/protocol && npm run typecheck -w @idlerdream/desktop",
+    "test:sidecar": "python -m pytest apps/sidecar/tests",
+    "schema": "python scripts/export_report_schema.py",
+    "verify": "python scripts/verify_assets.py"
+  },
+  "engines": {
+    "node": ">=22",
+    "npm": ">=10"
+  }
+}

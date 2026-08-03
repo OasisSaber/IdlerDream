@@ -1,0 +1,15 @@
+node_modules/
+dist/
+release/
+.vite/
+__pycache__/
+.pytest_cache/
+.venv/
+*.pyc
+*.pyo
+*.log
+.env
+.DS_Store
+coverage/
+htmlcov/
+idlerdream-data/
