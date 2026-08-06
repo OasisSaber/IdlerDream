@@ -14,6 +14,7 @@ from ..models import (
     NextActor,
     ProgressState,
     Project,
+    ReportQuality,
 )
 
 
@@ -62,6 +63,8 @@ def merge_state(
             updated_at=now,
             needs_user_attention=True,
             inspection_error="Workspace fingerprint mismatch",
+            inspection_quality=ReportQuality.FAILED,
+            inspection_warnings=report.validation_warnings,
         )
 
     facts.extend(item for item in report.facts if item not in facts)
@@ -89,6 +92,11 @@ def merge_state(
         or (next_action is not None and next_action.actor == NextActor.USER)
         or bool(risks)
     )
+    confidence = report.confidence
+    if report.report_quality == ReportQuality.PARTIAL:
+        # A normalized partial report remains usable but cannot claim the same
+        # certainty as a report that passed without repairs.
+        confidence = min(confidence, 0.75)
 
     return CurrentProjectState(
         project_id=project.id,
@@ -96,7 +104,7 @@ def merge_state(
         phase=report.phase,
         summary=report.summary,
         next_action=next_action,
-        confidence=report.confidence,
+        confidence=confidence,
         freshness=Freshness.CURRENT,
         activity_state=project.activity_state,
         facts=facts,
@@ -108,6 +116,8 @@ def merge_state(
         updated_at=now,
         needs_user_attention=needs_attention,
         inspection_error=inspection_error,
+        inspection_quality=report.report_quality,
+        inspection_warnings=report.validation_warnings,
     )
 
 
@@ -126,9 +136,7 @@ def invalidate_for_change(
     return updated
 
 
-def materially_changed(
-    previous: CurrentProjectState | None, current: CurrentProjectState
-) -> bool:
+def materially_changed(previous: CurrentProjectState | None, current: CurrentProjectState) -> bool:
     if previous is None:
         return True
     comparable_fields = (
@@ -139,6 +147,8 @@ def materially_changed(
         "progress",
         "risks",
         "needs_user_attention",
+        "inspection_quality",
+        "inspection_warnings",
     )
     return any(getattr(previous, field) != getattr(current, field) for field in comparable_fields)
 
@@ -190,6 +200,8 @@ def _fallback_state(
         updated_at=now,
         needs_user_attention=bool(risks),
         inspection_error=inspection_error,
+        inspection_quality=ReportQuality.FAILED,
+        inspection_warnings=[],
     )
 
 

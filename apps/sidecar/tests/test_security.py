@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -30,45 +31,35 @@ def test_redaction_removes_common_secrets() -> None:
     assert "abcdef" not in redacted
     assert "aaa.bbb.ccc" not in redacted
     assert "sk-proj" not in redacted
-    assert redact_value({"password": "secret", "nested": {"token": "abc"}})["password"] == "<redacted>"
+    redacted_value = redact_value({"password": "secret", "nested": {"token": "abc"}})
+    assert redacted_value["password"] == "<redacted>"
 
 
-def test_opencode_inspector_disables_shell_and_isolates_home(tmp_path: Path) -> None:
-    import json
-
+def test_opencode_inspector_disables_dangerous_tools_and_isolates_home(tmp_path: Path) -> None:
     from idlerdream.inspection.opencode import OpenCodeAdapter
-    from idlerdream.models import Project
 
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
     adapter = OpenCodeAdapter(config_dir=tmp_path / "inspector")
-    env = adapter._isolated_environment(Project(name="demo", path=str(workspace)))
+    env = adapter._isolated_environment()
     permission = json.loads(env["OPENCODE_PERMISSION"])
     assert permission["bash"] == "deny"
     assert permission["edit"] == "deny"
+    assert permission["task"] == "deny"
+    assert permission["external_directory"] == "deny"
     assert env["HOME"] != str(Path.home())
-    assert str(workspace.resolve(strict=False).as_posix()) in json.dumps(permission)
 
 
-def test_opencode_read_permission_is_workspace_scoped(tmp_path: Path) -> None:
-    import json
-
+def test_opencode_read_permission_uses_snapshot_not_workspace_path_globs(tmp_path: Path) -> None:
     from idlerdream.inspection.opencode import OpenCodeAdapter
-    from idlerdream.models import Project
 
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
     adapter = OpenCodeAdapter(config_dir=tmp_path / "inspector")
-    env = adapter._isolated_environment(Project(name="demo", path=str(workspace)))
-    read = json.loads(env["OPENCODE_PERMISSION"])["read"]
-    workspace_pattern = f"{workspace.resolve(strict=False).as_posix()}/**"
-    assert read["*"] == "deny"
-    assert read[workspace_pattern] == "allow"
-    # Sensitive patterns stay denied even inside the allowed workspace.
-    root = workspace.resolve(strict=False).as_posix()
-    assert f"{root}/.env" in read
-    assert read[f"{root}/.env"] == "deny"
-    assert any(key.endswith("/**/*.pem") for key in read)
+    permission = json.loads(adapter._isolated_environment()["OPENCODE_PERMISSION"])
+    assert permission["read"] == "allow"
+    assert permission["glob"] == "allow"
+    assert permission["grep"] == "allow"
+    assert permission["list"] == "allow"
+    serialized = json.dumps(permission)
+    assert "/**" not in serialized
+    assert "\\**" not in serialized
 
 
 def test_report_text_fields_are_redacted() -> None:
@@ -81,7 +72,10 @@ def test_report_text_fields_are_redacted() -> None:
         {
             "summary": "auth uses api_key=supersecret123",
             "phase": "ok",
-            "next_action": NextAction(actor=NextActor.USER, action="rotate token sk-proj-abcdefghijklmno123"),
+            "next_action": NextAction(
+                actor=NextActor.USER,
+                action="rotate token sk-proj-abcdefghijklmno123",
+            ),
             "facts": [],
             "inferences": [],
             "uncertainties": [],

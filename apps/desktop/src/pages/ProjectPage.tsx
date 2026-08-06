@@ -1,4 +1,5 @@
 import type { ProjectEnvelope } from "@idlerdream/protocol";
+import { InspectionReliabilityCard } from "../components/InspectionReliabilityCard";
 import { ProcessTree } from "../components/ProcessTree";
 import { FreshnessBadge, StatusBadge } from "../components/StatusBadge";
 import { formatBytes, relativeTime } from "../lib/format";
@@ -79,7 +80,11 @@ export function ProjectPage({
           <p className="state-summary">{state?.summary ?? "尚未完成首次巡检。"}</p>
           <div className="next-action-large">
             <span>最高优先级下一步</span>
-            <strong>{actionIsExpired ? "状态已过期，需要重新巡检后判断下一步" : currentAction?.action ?? "执行首次深度巡检"}</strong>
+            <strong>
+              {actionIsExpired
+                ? "状态已过期，需要重新巡检后判断下一步"
+                : currentAction?.action ?? "执行首次深度巡检"}
+            </strong>
             <div>
               <b>{actorLabel(currentAction?.actor)}</b>
               <span>置信度 {Math.round((state?.confidence ?? 0) * 100)}%</span>
@@ -202,6 +207,11 @@ export function ProjectPage({
         </main>
 
         <aside className="detail-side">
+          <InspectionReliabilityCard
+            state={state}
+            permission={project.inspection_permission}
+          />
+
           <section className="panel compact-panel">
             <span className="eyebrow">Cycle</span>
             <h2>{project.current_cycle?.name ?? "非结构化监控"}</h2>
@@ -232,10 +242,10 @@ export function ProjectPage({
                   ? "受限巡检"
                   : "仅本地监控"}
             </h2>
-            <p>敏感文件始终由本地工具层硬性拒绝读取。</p>
+            <p>敏感文件与 Agent 控制文件始终由本地快照构建器拒绝复制。</p>
             <div className="security-row">
               <Icon name="shield" />
-              <span>OpenCode 专用隔离配置</span>
+              <span>OpenCode 仅访问过滤后的临时快照</span>
             </div>
           </section>
         </aside>

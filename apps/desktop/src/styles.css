@@ -23,8 +23,8 @@
   --separator: rgba(60, 60, 67, 0.16);
   --separator-strong: rgba(60, 60, 67, 0.25);
   --text-primary: #1d1d1f;
-  --text-secondary: rgba(60, 60, 67, 0.78);
-  --text-tertiary: rgba(60, 60, 67, 0.58);
+    --text-secondary: rgba(60, 60, 67, 0.78);                                                                 
+    --text-tertiary: rgba(60, 60, 67, 0.74);                                                                  
   --text-quaternary: rgba(60, 60, 67, 0.38);
 
   --blue: #007aff;
@@ -80,8 +80,8 @@
     --separator: rgba(255, 255, 255, 0.105);
     --separator-strong: rgba(255, 255, 255, 0.19);
     --text-primary: #f5f5f7;
-    --text-secondary: rgba(235, 235, 245, 0.76);
-    --text-tertiary: rgba(235, 235, 245, 0.55);
+    --text-secondary: rgba(235, 235, 245, 0.76);                                                            
+    --text-tertiary: rgba(235, 235, 245, 0.62);                                                             
     --text-quaternary: rgba(235, 235, 245, 0.34);
     --blue: #0a84ff;
     --blue-hover: #2793ff;
@@ -178,10 +178,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .button svg { width: 16px; height: 16px; }
 .button:hover, .icon-button:hover, .select-like:hover { transform: translateY(-1px); }
 .button:active, .icon-button:active, .select-like:active { transform: scale(.98); }
-.button--primary { color: white; background: var(--blue); box-shadow: 0 5px 15px rgba(0,122,255,.21); }
+.button--primary { color: white; background: #0060df; box-shadow: 0 5px 15px rgba(0,122,255,.21); }
 .button--primary:hover { background: var(--blue-hover); }
 .button--secondary, .select-like { border-color: var(--separator); color: var(--text-primary); background: var(--material-thick); box-shadow: var(--shadow-sm); }
 .button--danger { border-color: rgba(215,0,21,.16); color: var(--red); background: var(--red-soft); }
+.recycle-actions { display: flex; gap: 8px; }
 .button--full { width: 100%; }
 .icon-button { display: grid; width: 38px; height: 38px; min-height: 38px; place-items: center; padding: 0; border-color: var(--separator); background: var(--material-thin); }
 .icon-button svg { width: 16px; height: 16px; }
@@ -239,7 +240,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .actor-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: var(--text-tertiary); font-size: 9px; }
 .actor { border-radius: 7px; padding: 4px 7px; font-weight: 700; }
 .actor--user { color: var(--orange); background: var(--orange-soft); }
-.actor--agent { color: var(--blue); background: var(--blue-soft); }
+.actor--agent { color: #0060df; background: var(--blue-soft); }
+@media (prefers-color-scheme: dark) {
+  .actor--agent { color: #48a9ff; }
+  .button--primary { background: #0071e3; }
+}
 .actor--none { color: var(--gray); background: var(--gray-soft); }
 .project-runtime > div:first-child strong { display: block; margin-top: 7px; font-size: 11px; font-weight: 620; }
 .resource-pills { display: grid; gap: 7px; margin-top: 13px; }
@@ -418,6 +423,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .onboarding-step small { margin-top: 3px; color: var(--text-tertiary); font-size: 9px; }
 .onboarding > main { display: grid; place-items: center; padding: 48px; background: radial-gradient(circle at 50% 28%, rgba(0,122,255,.07), transparent 35%), var(--canvas-elevated); }
 .setup-card { width: min(100%, 560px); border: 1px solid var(--separator); border-radius: 26px; padding: 34px; background: var(--material-thick); box-shadow: var(--shadow-lg); }
+.dialog-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .38); backdrop-filter: blur(4px); }
+.dialog-card { max-height: min(640px, 86vh); overflow: auto; }
 .setup-icon { display: grid; width: 54px; height: 54px; place-items: center; border-radius: 17px; color: var(--blue); background: var(--blue-soft); }
 .setup-icon svg { width: 25px; }
 .setup-card > .eyebrow { margin-top: 24px; }
@@ -508,6 +515,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .password-field input { min-width: 0; flex: 1; }
 .password-field button { min-width: 70px; border: 1px solid var(--separator); border-radius: 10px; padding: 0 11px; color: var(--blue); background: var(--material-thick); cursor: pointer; font-size: 10px; font-weight: 620; }
 .form-note { margin: -3px 0 0 !important; color: var(--text-tertiary) !important; font-size: 9px !important; }
+.form-error { margin: 0 !important; color: var(--danger, #e5484d) !important; font-size: 11px !important; }
 .isolation-checks { display: grid; gap: 8px; }
 .isolation-checks > div { display: flex; min-height: 42px; align-items: center; gap: 9px; border: 1px solid var(--separator); border-radius: 11px; padding: 0 12px; color: var(--text-secondary); background: var(--surface-secondary); font-size: 10px; }
 .isolation-checks svg { width: 14px; color: var(--green); }

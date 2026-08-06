@@ -241,3 +241,28 @@ Frontend dependency installation and packaged Electron/NSIS build remain environ
 ## Release recommendation
 
 **Do not publish a binary release from this asset package.** Use it as the initial private repository baseline. The first implementation milestone should resolve CR-14 through CR-18 and produce a reproducible Windows development build; the second should focus on CR-19 through CR-24 and clean-VM release readiness.
+
+## Status update — 2026-08-06 (inspection reliability)
+
+Implemented and verified on branch `fix/inspection-real-machine-reliability`
+(commits `b09a263`, `f2fd883`, `8ce40d9`). Evidence: `docs/VALIDATION_REPORT.md`,
+`docs/INSPECTION_COMPATIBILITY.md`, `docs/RELEASE_READINESS.md`.
+
+| Item | Status | Evidence |
+|---|---|---|
+| #19 OpenCode cannot read under old policy | Code complete; real-machine Gate C passed | OpenCode 1.18.12 + `opencode-go/deepseek-v4-flash`, read OK, secrets absent, writes denied, snapshot unchanged |
+| #20 strict parser fails on model variance | Code complete; real-machine Gates D/E passed | 10/10 stability; 5/5 project matrix; JSON5 repair + assistant-text event filtering |
+| CR-14 two-stage project removal | Implemented (2026-08-04) | recycle bin, restore/purge, expiry, migration tests |
+| CR-15 onboarding/settings flows | Partial | Onboarding step 4 + add-workspace dialog real; steps 0–2 remain visual prototypes |
+| CR-16 WebSocket event stream | Implemented (2026-08-04) | authenticated `/api/v1/events`, reconnect, tests |
+| CR-17 `considered_paths` | Implemented (2026-08-04) | protocol/collectors/UI renamed; tests |
+| CR-18 snapshot append/index atomicity | Implemented (2026-08-04) | startup reconciliation + tests |
+| CR-19 raw-report compaction/DPAPI Windows tests | Open | non-Windows fallback exists; Windows DPAPI and compaction tests pending |
+| CR-20 monitoring scheduler split | Open | sequential loop remains; Watchdog split pending |
+| CR-21 Windows process association validation | Open | fixtures and Windows integration tests pending |
+| CR-22 control-pipe ACL tests | Open | token secrecy only; current-user ACL tests pending |
+| CR-23 dependency lockfiles | Partial | npm `package-lock.json` committed; Python lock and Dependabot pending |
+| CR-24 build/installer proof | Partial | Sidecar PyInstaller exe built and smoke-tested locally (health/projects/auth); NSIS clean-VM install/uninstall still pending |
+
+Issues #19/#20 have passing evidence but are not closed: closing and opening the
+PR is an external action requiring user authorization.

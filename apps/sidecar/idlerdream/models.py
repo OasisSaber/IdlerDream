@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID, uuid4
@@ -13,7 +13,7 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-class CoreStatus(str, Enum):
+class CoreStatus(StrEnum):
     UNKNOWN = "unknown"
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
@@ -24,32 +24,38 @@ class CoreStatus(str, Enum):
     COMPLETED = "completed"
 
 
-class Freshness(str, Enum):
+class Freshness(StrEnum):
     CURRENT = "current"
     POSSIBLY_STALE = "possibly_stale"
     EXPIRED = "expired"
     NEVER_INSPECTED = "never_inspected"
 
 
-class ActivityState(str, Enum):
+class ActivityState(StrEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     ARCHIVED = "archived"
 
 
-class InspectionPermission(str, Enum):
+class InspectionPermission(StrEnum):
     STANDARD_SOURCE = "standard_source"
     RESTRICTED = "restricted"
     LOCAL_ONLY = "local_only"
 
 
-class NextActor(str, Enum):
+class NextActor(StrEnum):
     USER = "user"
     AGENT = "agent"
     NONE = "none"
 
 
-class EvidenceKind(str, Enum):
+class ReportQuality(StrEnum):
+    FULL = "full"
+    PARTIAL = "partial"
+    FAILED = "failed"
+
+
+class EvidenceKind(StrEnum):
     TEST = "test"
     BUILD = "build"
     VCS = "vcs"
@@ -212,6 +218,7 @@ class InspectionReport(BaseModel):
     uncertainties: list[str] = Field(default_factory=list)
     progress: ProgressState = Field(default_factory=ProgressState)
     analysis_version: dict[str, str] = Field(default_factory=dict)
+    report_quality: ReportQuality = ReportQuality.FULL
     validation_warnings: list[str] = Field(default_factory=list)
 
 
@@ -233,6 +240,8 @@ class CurrentProjectState(BaseModel):
     updated_at: datetime = Field(default_factory=utc_now)
     needs_user_attention: bool = False
     inspection_error: str | None = None
+    inspection_quality: ReportQuality = ReportQuality.FAILED
+    inspection_warnings: list[str] = Field(default_factory=list)
 
 
 class SnapshotEvent(BaseModel):
@@ -255,13 +264,16 @@ class InspectionJob(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     project_id: UUID
     source: Literal["manual", "automatic", "scheduled"] = "manual"
-    status: Literal["queued", "running", "completed", "failed", "cancelled", "invalidated"] = "queued"
+    status: Literal[
+        "queued", "running", "completed", "failed", "cancelled", "invalidated"
+    ] = "queued"
     stage: str = "queued"
     started_at: datetime | None = None
     finished_at: datetime | None = None
     elapsed_seconds: float = 0.0
     last_activity: str = ""
     error: str | None = None
+    warnings: list[str] = Field(default_factory=list)
     budget: dict[str, int] = Field(default_factory=dict)
 
 

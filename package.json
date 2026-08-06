@@ -12,6 +12,7 @@
     "build": "npm run build -w @idlerdream/protocol && npm run build -w @idlerdream/desktop",
     "typecheck": "npm run typecheck -w @idlerdream/protocol && npm run typecheck -w @idlerdream/desktop",
     "test:sidecar": "python -m pytest apps/sidecar/tests",
+    "test:ui": "npm run test:ui -w @idlerdream/desktop",
     "schema": "python scripts/export_report_schema.py",
     "verify": "python scripts/verify_assets.py"
   },
