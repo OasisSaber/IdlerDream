@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+
+import pytest
 
 from idlerdream.inspection.opencode import OpenCodeAdapter
 
@@ -146,6 +149,7 @@ def test_adapter_explicit_model_wins_over_config(tmp_path: Path) -> None:
     assert adapter.resolve_model() == "explicit/model"
 
 
+@pytest.mark.skipif(os.name != "nt", reason="npm .cmd shims are Windows-only")
 def test_resolve_executable_follows_npm_cmd_shim(tmp_path: Path, monkeypatch) -> None:
     from idlerdream.inspection.opencode import _resolve_executable
 
@@ -166,8 +170,9 @@ def test_resolve_executable_returns_exe_directly(tmp_path: Path, monkeypatch) ->
 
     real = tmp_path / "tool.exe"
     real.write_bytes(b"MZ")
-    monkeypatch.setenv("PATH", str(tmp_path))
-    assert _resolve_executable("tool.exe") == str(real)
+    real.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path) + os.pathsep + os.environ.get("PATH", ""))
+    assert Path(_resolve_executable("tool.exe")).resolve() == real.resolve()
 
 
 def test_assistant_text_fragments_excludes_tool_outputs() -> None:
