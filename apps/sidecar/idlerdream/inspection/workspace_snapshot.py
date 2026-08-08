@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..models import FactBaseline, Project
+from ..models import FactBaseline, InspectionPermission, Project
 from ..security.paths import ensure_within_workspace, is_sensitive_path
 
 SNAPSHOT_POLICY_VERSION = "idlerdream-filtered-snapshot-v1"
@@ -17,6 +18,10 @@ CONTROL_FILE_NAMES = {
     ".cursorrules",
     ".windsurfrules",
     "copilot-instructions.md",
+    # OpenCode loads these root-level files as project configuration even when
+    # .opencode/ is absent. They must never enter the inspection snapshot.
+    "opencode.json",
+    "opencode.jsonc",
 }
 CONTROL_DIR_NAMES = {
     ".opencode",
@@ -26,10 +31,57 @@ CONTROL_DIR_NAMES = {
     ".windsurf",
 }
 
+_RESTRICTED_ROOT_DOC_NAMES = {
+    "todo.md",
+    "plan.md",
+    "roadmap.md",
+    "changelog.md",
+    "license",
+    "license.md",
+}
+_SECRET_CONTENT_PATTERNS = (
+    re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"),
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+    re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b"),
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
+    re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"),
+)
+# Matches credential assignments with a quoted literal value or a bare
+# literal value. Bare values may not be followed by more value characters
+# (that would truncate an identifier mid-word) and may not be a function call
+# (e.g. `PASSWORD = os.environ.get(...)`).
+_SECRET_ASSIGNMENT_PATTERN = re.compile(
+    r"(?i)\b(?:\w+[_-])?(?:api[_-]?key|access[_-]?token|auth[_-]?token|"
+    r"client[_-]?secret|password|secret|token|key)\b\s*[:=]\s*"
+    r"(?:[\"'](?P<quoted>[^\"'\r\n]{16,})[\"']|"
+    r"(?P<bare>[A-Za-z0-9_\-./+=!@#%^*~]{16,})"
+    r"(?![\t ]*\()(?![A-Za-z0-9_\-./+=!@#%^*~]))"
+)
+# Documentation examples such as `password = "your_password_here"` or
+# `API_KEY = "sk-your-key-here..."` must not exclude a file that only
+# illustrates a schema. These tokens are never part of a real secret.
+_PLACEHOLDER_TOKENS = (
+    "your",
+    "example",
+    "changeme",
+    "dummy",
+    "placeholder",
+    "sample",
+    "fake",
+    "demo",
+    "test",
+    "testing",
+    "foo",
+    "bar",
+    "lorem",
+    "ipsum",
+    "xxx",
+)
+
 
 @dataclass(frozen=True, slots=True)
 class SnapshotPolicy:
-    max_files: int = 200
+    max_files: int = 40
     max_total_bytes: int = 2 * 1024 * 1024
     max_file_bytes: int = 200 * 1024
 
@@ -104,6 +156,14 @@ class InspectionWorkspaceBuilder:
             if reason:
                 snapshot.excluded_files.append({"path": relative.as_posix(), "reason": reason})
                 continue
+            if (
+                project.inspection_permission == InspectionPermission.RESTRICTED
+                and not _restricted_path_allowed(relative)
+            ):
+                snapshot.excluded_files.append(
+                    {"path": relative.as_posix(), "reason": "restricted_permission"}
+                )
+                continue
 
             try:
                 source = ensure_within_workspace(workspace / relative, workspace)
@@ -153,11 +213,18 @@ class InspectionWorkspaceBuilder:
                 )
                 continue
 
+            text = raw.decode("utf-8", errors="replace")
+            if _contains_high_confidence_secret(text):
+                snapshot.excluded_files.append(
+                    {"path": relative.as_posix(), "reason": "secret_content"}
+                )
+                continue
+
             target = root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             # Normalize to UTF-8 so downstream tools never need to guess an
             # encoding. Replacement characters are explicit and deterministic.
-            target.write_text(raw.decode("utf-8", errors="replace"), encoding="utf-8")
+            target.write_text(text, encoding="utf-8")
             snapshot.copied_files.append(relative.as_posix())
             snapshot.copied_bytes += size
 
@@ -208,6 +275,8 @@ def _exclusion_reason(relative: Path) -> str | None:
     if any(part in CONTROL_DIR_NAMES for part in lowered_parts[:-1]):
         return "agent_control_directory"
     name = relative.name.lower()
+    if name in {"opencode.json", "opencode.jsonc"}:
+        return "agent_control_file"
     if name in CONTROL_FILE_NAMES:
         return "agent_instruction_file"
     if (
@@ -217,6 +286,37 @@ def _exclusion_reason(relative: Path) -> str | None:
     ):
         return "agent_instruction_file"
     return None
+
+
+def _restricted_path_allowed(relative: Path) -> bool:
+    name = relative.name.lower()
+    if name.startswith("readme") or name in _RESTRICTED_ROOT_DOC_NAMES:
+        return True
+    lowered_parts = [part.lower() for part in relative.parts]
+    return (
+        bool(lowered_parts)
+        and lowered_parts[0] == "docs"
+        and relative.suffix.lower() in {".md", ".txt", ".rst"}
+    )
+
+
+def _contains_high_confidence_secret(text: str) -> bool:
+    for pattern in _SECRET_CONTENT_PATTERNS:
+        match = pattern.search(text)
+        if match and not _is_placeholder_value(match.group(0)):
+            return True
+    for match in _SECRET_ASSIGNMENT_PATTERN.finditer(text):
+        value = match.group("quoted") or match.group("bare")
+        if not _is_placeholder_value(value):
+            return True
+    return False
+
+
+def _is_placeholder_value(value: str | None) -> bool:
+    if not value:
+        return False
+    lowered = value.lower()
+    return any(token in lowered for token in _PLACEHOLDER_TOKENS)
 
 
 def _candidate_priority(relative_text: str) -> tuple[int, int, str]:

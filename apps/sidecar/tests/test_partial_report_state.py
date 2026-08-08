@@ -18,6 +18,7 @@ def test_partial_report_caps_confidence_and_preserves_warnings(tmp_path) -> None
         workspace_fingerprint="fingerprint",
     )
     report = InspectionReport(
+        schema_version=1,
         project_id=project.id,
         workspace_fingerprint="fingerprint",
         core_status=CoreStatus.IN_PROGRESS,

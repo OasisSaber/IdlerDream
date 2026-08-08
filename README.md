@@ -10,7 +10,7 @@ Agent 进程。它持续收集确定性本地事实，并通过受限的 OpenCod
 
 巡检可靠性实施资产包（Issues #19/#20）已集成并通过本机实机验收：
 
-- **Gate A（自动化检查）**：通过 — Sidecar 63 项测试、compileall、资产校验、
+- **Gate A（自动化检查）**：通过 — Sidecar 97 项测试（1 项非 Windows 跳过）、compileall、资产校验、
   TypeScript 类型检查、Vite/Electron 构建。
 - **Gate C（OpenCode 只读策略）**：通过 — OpenCode 1.18.12 +
   `opencode-go/deepseek-v4-flash` 在过滤快照隔离下可读普通源码、敏感文件与
@@ -20,7 +20,7 @@ Agent 进程。它持续收集确定性本地事实，并通过受限的 OpenCod
 - **Gate E（项目矩阵）**：通过 — 小型 Git 项目、中型仓库、hostile 项目、
   含空格与中文路径、非 Git 目录共 5/5 有效。
 - **Gate B（部分）**：Sidecar 已打包并冒烟通过，NSIS 安装器本机构建成功
-  （231MB，已签名）；干净虚拟机安装/卸载仍属 CR-24。
+  （231MB；未配置 Authenticode 证书，不声称已签名）；干净虚拟机安装/卸载仍属 CR-24。
 - **Gate F（UI 质量）**：接近完成 — 预览页与桌面应用在明/暗模式下 axe
   （wcag2a/2aa/21aa + best-practice）均 0 违规；键盘走查通过；四种尺寸与
   应用三态（full/partial/failed）截图已采集（`output/playwright/`）；真实
@@ -35,7 +35,7 @@ OpenCode 从不接触真实工作区路径，巡检过程为：
 
 ```text
 真实工作区 → Sidecar 候选清单 → 路径包含性检查 → 敏感/Agent 控制文件排除
-→ 文件/内容预算（200 文件、200 KiB/文件、2 MiB 总量）→ UTF-8 规范化临时快照
+→ 文件/内容预算（40 文件、200 KiB/文件、2 MiB 总量）→ UTF-8 规范化临时快照
 → 隔离的 OpenCode HOME/配置 → 仅 read/list/glob/grep → 报告归一化
 → 项目 ID + 指纹校验 → 状态归并
 ```

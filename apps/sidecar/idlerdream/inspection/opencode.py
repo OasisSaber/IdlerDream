@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import signal
+import subprocess
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,6 +18,7 @@ from ..models import FactBaseline, InspectionReport, Project
 from ..security.redaction import redact_report_text_fields, redact_text, redact_value
 from .prompt import PROMPT_VERSION, build_inspection_prompt
 from .report_parser import NORMALIZER_VERSION, extract_strings, parse_report_text
+from .run_profile import OpenCodeRunProfile
 from .workspace_snapshot import (
     SNAPSHOT_POLICY_VERSION,
     InspectionWorkspaceBuilder,
@@ -151,11 +153,20 @@ def prepare_provider_auth(
         return warnings
 
     target = Path(isolated_home) / "data" / "opencode" / "auth.json"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(
-        json.dumps({provider: entry}, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            json.dumps({provider: entry}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        try:
+            target.chmod(0o600)
+        except OSError:
+            pass
+    except OSError as exc:
+        warnings.append(
+            f"OpenCode provider credential could not be staged in the ephemeral profile: {exc}"
+        )
     return warnings
 
 
@@ -315,17 +326,24 @@ class OpenCodeAdapter:
                 report=None, error="Project is configured for local-only monitoring"
             )
 
-        model = self.resolve_model()
-        auth_warnings = prepare_provider_auth(
-            model,
-            self.isolated_home,
-            self.user_auth_path or real_opencode_auth_path(),
-        )
-        snapshot = self.snapshot_builder.build(
-            job_id=job_id,
-            project=project,
-            baseline=baseline,
-        )
+        run_profile = OpenCodeRunProfile.create(self.config_dir, job_id)
+        try:
+            model = self.resolve_model()
+            auth_warnings = prepare_provider_auth(
+                model,
+                run_profile.home,
+                self.user_auth_path or real_opencode_auth_path(),
+            )
+            snapshot = self.snapshot_builder.build(
+                job_id=job_id,
+                project=project,
+                baseline=baseline,
+            )
+        except Exception:
+            # Every failure after profile creation must remove the staged
+            # credentials and runtime state, not defer to garbage collection.
+            run_profile.cleanup()
+            raise
         if on_progress:
             await on_progress(
                 "snapshot_ready",
@@ -359,10 +377,15 @@ class OpenCodeAdapter:
         command.append(prompt)
 
         environment = os.environ.copy()
-        environment.update(self._isolated_environment())
+        environment.update(
+            self._isolated_environment(
+                isolated_home=run_profile.home,
+                profile_config_dir=run_profile.config_dir,
+            )
+        )
         creation_flags = 0
         if os.name == "nt":
-            creation_flags = getattr(asyncio.subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP
 
         events: list[dict] = []
         text_fragments: list[str] = []
@@ -457,6 +480,7 @@ class OpenCodeAdapter:
         finally:
             self._running.pop(job_id, None)
             snapshot.cleanup()
+            run_profile.cleanup()
 
     async def cancel(self, job_id: str) -> bool:
         process = self._running.get(job_id)
@@ -468,11 +492,29 @@ class OpenCodeAdapter:
             else:
                 process.terminate()
             await asyncio.wait_for(process.wait(), timeout=7)
-        except (ProcessLookupError, TimeoutError):
+        except (ProcessLookupError, TimeoutError, OSError):
+            # CTRL_BREAK can fail when the child did not inherit a console. The
+            # Job/process-tree fallback remains the authoritative cancellation.
             _terminate_process_tree(process.pid)
         return True
 
-    def _isolated_environment(self, project: Project | None = None) -> dict[str, str]:
+    def _isolated_environment(
+        self,
+        project: Project | None = None,
+        *,
+        isolated_home: Path | None = None,
+        profile_config_dir: Path | None = None,
+    ) -> dict[str, str]:
+        runtime_home = (isolated_home or self.isolated_home).resolve(strict=False)
+        runtime_config_dir = (profile_config_dir or self.config_dir).resolve(strict=False)
+        for directory in (
+            runtime_home,
+            runtime_home / "config",
+            runtime_home / "data",
+            runtime_home / "cache",
+            runtime_config_dir,
+        ):
+            directory.mkdir(parents=True, exist_ok=True)
         permission = {
             # Keep the default deny boundary, but grant the four read-only tools
             # without path globs. The process is physically confined to the
@@ -520,12 +562,12 @@ class OpenCodeAdapter:
             },
         }
         return {
-            "OPENCODE_CONFIG_DIR": str(self.config_dir),
-            "HOME": str(self.isolated_home),
-            "USERPROFILE": str(self.isolated_home),
-            "XDG_CONFIG_HOME": str(self.isolated_home / "config"),
-            "XDG_DATA_HOME": str(self.isolated_home / "data"),
-            "XDG_CACHE_HOME": str(self.isolated_home / "cache"),
+            "OPENCODE_CONFIG_DIR": str(runtime_config_dir),
+            "HOME": str(runtime_home),
+            "USERPROFILE": str(runtime_home),
+            "XDG_CONFIG_HOME": str(runtime_home / "config"),
+            "XDG_DATA_HOME": str(runtime_home / "data"),
+            "XDG_CACHE_HOME": str(runtime_home / "cache"),
             "OPENCODE_CONFIG_CONTENT": json.dumps(config, separators=(",", ":")),
             "OPENCODE_PERMISSION": json.dumps(permission, separators=(",", ":")),
             "OPENCODE_DISABLE_CLAUDE_CODE": "1",
@@ -588,6 +630,7 @@ class MockInspectorAdapter:
         )
 
         report = InspectionReport(
+            schema_version=1,
             project_id=project.id,
             workspace_fingerprint=baseline.workspace_fingerprint,
             core_status=CoreStatus.BLOCKED if failed else CoreStatus.IN_PROGRESS,

@@ -205,7 +205,7 @@ class FactBaseline(BaseModel):
 
 
 class InspectionReport(BaseModel):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1]
     project_id: UUID
     workspace_fingerprint: str
     core_status: CoreStatus

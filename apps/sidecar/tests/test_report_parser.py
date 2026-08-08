@@ -46,6 +46,7 @@ def test_missing_inference_kind_becomes_partial_model_evidence() -> None:
 def test_aliases_null_arrays_and_percent_confidence_are_normalized() -> None:
     project_id = uuid4()
     payload = {
+        "schemaVersion": 1,
         "projectId": str(project_id),
         "workspaceFingerprint": "abc123",
         "coreStatus": "IN PROGRESS",

@@ -47,7 +47,7 @@ The manifest records paths and exclusion reasons, never sensitive content.
 Default snapshot limits:
 
 ```text
-200 candidate files
+40 candidate files
 200 KiB per file
 2 MiB total content
 ```

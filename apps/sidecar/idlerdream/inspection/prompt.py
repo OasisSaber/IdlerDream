@@ -30,8 +30,10 @@ Security and authority rules:
    manifest. Never report the temporary snapshot path.
 7. Return exactly one JSON object matching schema_version 1. Do not include prose
    outside the object.
-8. Facts must be concrete and reference files, tests, VCS state or processes.
-   Inferences must use kind="model" and deterministic=false.
+8. Deterministic facts are Sidecar-owned and already supplied in the baseline.
+   Leave the report facts array empty. Put every source observation and semantic
+   interpretation in inferences with kind="model", deterministic=false and an
+   optional workspace-relative path.
 9. Provide at most one highest-priority next action. If no action is executable,
    actor must be "none" and waiting_condition must explain why.
 10. Do not invent percentage progress. Use acceptance_count only when the
@@ -72,18 +74,7 @@ def build_inspection_prompt(
             "waiting_condition": None,
         },
         "confidence": 0.0,
-        "facts": [
-            {
-                "kind": "test|build|vcs|file|process|plan|snapshot",
-                "summary": "concrete fact",
-                "path": None,
-                "line_start": None,
-                "line_end": None,
-                "command": None,
-                "content_hash": None,
-                "deterministic": True,
-            }
-        ],
+        "facts": [],
         "inferences": [
             {
                 "kind": "model",

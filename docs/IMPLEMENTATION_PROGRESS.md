@@ -154,7 +154,7 @@ targets release blockers:
 Sidecar:
 
 - `inspection/workspace_snapshot.py` (new) — filtered physical snapshot,
-  sensitive/control-file exclusion, 200-file / 200 KiB / 2 MiB budgets.
+  sensitive/control-file exclusion, 40-file / 200 KiB / 2 MiB budgets.
 - `inspection/opencode.py` — OpenCode runs only inside the snapshot with
   read/list/glob/grep allow and all mutation/delegation tools denied.
 - `inspection/prompt.py` — snapshot-aware prompt, workspace paths removed.
@@ -270,6 +270,12 @@ Full detail: `docs/INSPECTION_COMPATIBILITY.md`.
   still pending).
 - Issues #19/#20: evidence complete; closing the issues and opening the PR is
   an external action that requires user authorization.
+- CR21-01 … CR21-10 (PR #21 CodeReview follow-up, 2026-08-08): resolved in
+  code — root `opencode.json(c)` excluded, 40-file budget, Restricted-mode
+  doc allowlist, secret-content guard, per-inspection Run Profile, model-facts
+  demotion, required `schema_version`, Windows process-group fix, `test:ui` in
+  CI. Suite now `101 passed, 1 skipped`; real-machine revalidation passed
+  (probe, 10/10 stability, two-provider concurrency, cancel/timeout cleanup).
 
 ## Scope check
 

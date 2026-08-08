@@ -133,6 +133,9 @@ system High Contrast session.
 NSIS: apps/desktop/dist/IdlerDream Setup 0.1.0-dev.exe (231 MB, signed)
 ```
 
+> Errata (2026-08-08, CR21-08): "signed" was not evidenced — electron-builder
+> has no Authenticode certificate configured. The installer is unsigned.
+
 Clean-VM install/uninstall smoke is still required (CR-24).
 
 ## Application state screenshots

@@ -97,3 +97,27 @@ consecutive inspections through the product adapter path:
 - `unverified`: no current test evidence.
 
 A new OpenCode version inherits no verification status automatically.
+
+## Post-fix revalidation (2026-08-08, PR #21 CodeReview follow-up)
+
+The CR21 fixes changed the isolation boundary (per-inspection ephemeral
+profiles, secret-content guard, 40-file budget, root `opencode.json(c)`
+exclusion), so the gates were re-run on the same machine:
+
+```text
+OpenCodeVersion            = 1.18.12
+Policy probe (opencode-go/deepseek-v4-flash)
+  ExitCode                 = 0
+  OrdinarySourceRead       = True
+  SensitiveContentAbsent   = True
+  SnapshotUnmodified       = True
+Stability                  = 10/10 valid or partial (9 full, 1 partial)
+Concurrency                = opencode-go + deepseek concurrently; distinct
+                             profiles; each auth.json holds exactly one
+                             provider; no cross-contamination; cleanup clean
+Cancellation               = CTRL_BREAK delivered (0xC000013A), process tree
+                             gone, profile + snapshot removed
+Timeout (2 s)              = error reported, profile + snapshot removed
+```
+
+Status for OpenCode 1.18.12 remains **verified**.

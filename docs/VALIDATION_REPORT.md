@@ -87,7 +87,9 @@ NSIS installer (2026-08-06, local Windows):
 
 ```text
 npm run dist -w @idlerdream/desktop
-  -> apps/desktop/dist/IdlerDream Setup 0.1.0-dev.exe (231 MB, signed with signtool)
+  -> apps/desktop/dist/IdlerDream Setup 0.1.0-dev.exe (231 MB; no Authenticode
+     certificate configured — the previous "signed with signtool" claim was
+     removed in the CR21-08 doc sync)
 ```
 
 Clean-VM install/uninstall smoke remains an external CR-24 task.
@@ -195,3 +197,43 @@ The TypeScript compiler API was still used to syntax-transpile all 18 `.ts`/`.ts
 - NSIS install, tray lifecycle, uninstall and data-preservation behavior.
 
 See `docs/CODE_REVIEW.md` for unresolved production findings.
+
+## CodeReview follow-up validation (2026-08-08)
+
+PR #21 CodeReview fixes (CR21-01 … CR21-10) applied on branch
+`fix/inspection-real-machine-reliability` head `590fa5b`; full automated gates
+re-run in this Windows environment:
+
+```text
+python -m pytest apps/sidecar/tests                      -> 97 passed, 1 skipped
+python -m ruff check apps/sidecar/idlerdream
+  apps/sidecar/tests apps/sidecar/launcher.py            -> All checks passed
+python -m compileall -q apps/sidecar/idlerdream          -> passed
+python scripts/verify_assets.py                          -> asset verification passed
+npm run test:ui                                          -> 9 passed
+npm run typecheck                                        -> passed (protocol + desktop + electron)
+npm run build                                            -> vite + electron-builder win-unpacked, exit 0
+```
+
+New regression coverage (8 tests in `tests/test_codereview_regressions.py`):
+opencode.json(c) exclusion, 40-file default budget, required schema_version,
+schemaVersion alias, model-facts demotion, per-inspection Run Profile
+isolation + cleanup, high-confidence secret-content exclusion, Restricted-mode
+source-body exclusion.
+
+OpenCode 1.18.12 remains installed in this environment. Post-fix real-machine
+revalidation was executed on 2026-08-08 (Windows, Python-equivalent probe,
+real providers):
+
+```text
+read-only policy probe (opencode 1.18.12 + opencode-go/deepseek-v4-flash)
+  exit code 0, marker read, sensitive content absent, snapshot hash stable  -> PASS
+stability: 10/10 valid or partial reports, identity/fingerprint correct      -> PASS
+  (9 full, 1 partial); run profiles + snapshots cleaned after every run
+concurrency: opencode-go + deepseek concurrently, two distinct profiles,
+  each auth.json holds exactly one provider, no cross-contamination,
+  both reports valid, all profiles removed after completion                 -> PASS
+cancel: CTRL_BREAK delivered (exit 0xC000013A STATUS_CONTROL_C_EXIT),
+  running map empty, profile + snapshot cleaned                             -> PASS
+timeout (2 s): error reported, profile + snapshot cleaned                   -> PASS
+```

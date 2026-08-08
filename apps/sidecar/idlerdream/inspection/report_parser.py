@@ -213,6 +213,7 @@ def _normalize_payload(
     diagnostics = ParseDiagnostics()
 
     aliases = {
+        "schemaVersion": "schema_version",
         "projectId": "project_id",
         "workspaceFingerprint": "workspace_fingerprint",
         "coreStatus": "core_status",
@@ -224,10 +225,6 @@ def _normalize_payload(
         if target not in normalized and source in normalized:
             normalized[target] = normalized.pop(source)
             _record_normalization(diagnostics, warnings, f"renamed {source} to {target}")
-
-    if "schema_version" not in normalized:
-        normalized["schema_version"] = 1
-        _record_normalization(diagnostics, warnings, "defaulted schema_version to 1")
 
     if "core_status" in normalized:
         status_key = _canonical_token(normalized["core_status"])
@@ -331,6 +328,21 @@ def _normalize_evidence_list(
             warnings.append(f"An item in {collection} without a summary was discarded.")
             continue
         evidence["summary"] = str(summary).strip()[:1000]
+
+        # The model is never an authority for deterministic facts. Even when it
+        # emits a valid-looking kind/path/deterministic=true tuple, demote the
+        # item to a model inference. Sidecar-owned baseline evidence remains the
+        # only source of facts displayed as deterministic state.
+        if collection == "facts":
+            evidence["kind"] = "model"
+            evidence["deterministic"] = False
+            moved_to_inferences.append(evidence)
+            _record_normalization(
+                diagnostics,
+                warnings,
+                f"moved model-supplied facts[{index}] to inferences",
+            )
+            continue
 
         kind = _canonical_token(evidence.get("kind"))
         if collection == "inferences":

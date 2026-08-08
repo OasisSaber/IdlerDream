@@ -266,3 +266,30 @@ Implemented and verified on branch `fix/inspection-real-machine-reliability`
 
 Issues #19/#20 have passing evidence but are not closed: closing and opening the
 PR is an external action requiring user authorization.
+
+## Status update — 2026-08-08 (PR #21 CodeReview follow-up)
+
+A merge-before review of PR #21 (`fix/inspection-real-machine-reliability`,
+head `590fa5b`) found ten pre-merge defects (CR21-01 … CR21-10). All were
+fixed on the branch and verified by the full automated suite
+(`97 passed, 1 skipped`; ruff clean; `test:ui` 9 passed; typecheck and build
+pass). Evidence: `docs/VALIDATION_REPORT.md`, `docs/RELEASE_READINESS.md`.
+
+| Finding | Severity | Resolution |
+|---|---|---|
+| CR21-01 root `opencode.json(c)` enters snapshot | High / Security | excluded + classified `agent_control_file` |
+| CR21-02 concurrent inspections share OpenCode HOME/auth | High / Security + Correctness | per-job ephemeral `OpenCodeRunProfile` (HOME/XDG/config), cleanup on all paths |
+| CR21-03 model can declare deterministic facts | High / Trust Boundary | prompt requires `facts: []`; parser demotes every model fact to `kind=model`, `deterministic=false` |
+| CR21-04 `schema_version` invented by normalizer | Medium | required core field; only `schemaVersion` alias accepted |
+| CR21-05 snapshot budget 200 vs frozen 40 | Medium | `SnapshotPolicy.max_files = 40` |
+| CR21-06 Windows CTRL_BREAK constant wrong | Medium | `subprocess.CREATE_NEW_PROCESS_GROUP` + `OSError` tree-kill fallback |
+| CR21-07 UI tests absent from CI | Medium | `npm run test:ui` added before typecheck |
+| CR21-08 release docs inaccurate | Low | stale test counts replaced; “signed” claims removed (no Authenticode certificate configured); 40-file budget documented |
+| CR21-09 Restricted mode copies full source | High / Privacy | allowlist: root README/docs + `docs/*.{md,txt,rst}` only; source bodies excluded (`restricted_permission`) |
+| CR21-10 hardcoded secrets in ordinary source | High / Security | local high-confidence scan; matching files excluded (`secret_content`) without recording content |
+
+Remaining before merge: the PR description sync (no product scope was
+introduced). Real-machine revalidation passed on 2026-08-08: read-only policy
+probe (OpenCode 1.18.12), 10/10 stability, two-provider concurrent isolation,
+CTRL_BREAK cancellation and timeout cleanup — evidence in
+`docs/VALIDATION_REPORT.md` and `docs/RELEASE_READINESS.md`.
