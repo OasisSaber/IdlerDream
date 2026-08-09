@@ -237,3 +237,32 @@ cancel: CTRL_BREAK delivered (exit 0xC000013A STATUS_CONTROL_C_EXIT),
   running map empty, profile + snapshot cleaned                             -> PASS
 timeout (2 s): error reported, profile + snapshot cleaned                   -> PASS
 ```
+
+## Real-machine revalidation (2026-08-09, head 4406176)
+
+Post-docs-sync head `4406176` (PR #21) revalidation in this Windows environment,
+real OpenCode 1.18.12 + `opencode-go/deepseek-v4-flash` via the adapter code
+path (OpenCodeAdapter.inspect / InspectionWorkspaceBuilder / OpenCodeRunProfile):
+
+```text
+policy probe (8.1):      exit 0, marker read, sensitive content absent,
+                         snapshot unchanged                                  -> PASS
+restricted (8.2):        src/*.py, src/*.ts excluded with
+                         restricted_permission; README/docs/*.{md,txt,rst}
+                         and root todo/plan/roadmap docs allowed            -> PASS
+secret guard (8.3):      API_KEY / PRIVATE KEY files excluded with
+                         secret_content; manifest stores no secret body     -> PASS
+concurrency (8.4):       two simultaneous inspections, distinct per-job
+                         profiles, no leftover profiles, both reports valid
+                         (partial + full)                                   -> PASS
+lifecycle (8.5):         completed / failed / cancelled / timeout all clean
+                         profile + snapshot; cancel exits 0xC000013A        -> PASS
+stability (8.6):         10/10 valid reports (8 full, 2 partial with
+                         deterministic-baseline warnings), 10/10 identity,
+                         10/10 cleanup                                      -> PASS
+```
+
+Evidence: `.reasonix/probes/runtime_results.json` (git-ignored; kept locally),
+`.reasonix/probes/probe_policy.py` / `probe_local.py` / `probe_runtime.py`.
+GitHub CI on head `4406176` (run 31308899899): sidecar, desktop,
+sidecar-packaging, windows-installer — all green.
