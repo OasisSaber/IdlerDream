@@ -347,3 +347,140 @@ def test_file_event_watcher_ignores_ignored_dirs(tmp_path: Path) -> None:
         loop.call_soon_threadsafe(loop.stop)
         runner.join(timeout=5)
         database.close()
+
+
+def test_cooldown_blocks_repeat_auto_inspect(tmp_path: Path) -> None:
+    """A second trigger inside the cooldown window must not schedule (CR-20)."""
+    project, database, facts, events, projects = _setup(tmp_path)
+    triggered: list[tuple[UUID, str]] = []
+
+    async def auto_inspect(project_id: UUID, reason: str) -> None:
+        triggered.append((project_id, reason))
+
+    monitoring = MonitoringService(
+        projects,
+        facts,
+        database,
+        events,
+        auto_inspect=auto_inspect,
+        process_seconds=60,
+        stable_seconds=0.01,
+        cooldown_seconds=0.4,
+    )
+
+    async def run() -> None:
+        # First exit: schedules and fires (cooldown starts).
+        facts.agents[project.id] = [_agent(101)]
+        await monitoring._deep_pass()
+        await monitoring._reconcile_pass()
+        await monitoring._process_pass()
+        facts.agents[project.id] = []
+        await monitoring._process_pass()
+        await asyncio.sleep(0.2)
+        assert triggered == [(project.id, "agent_exit")]
+
+        # Second exit within cooldown: must be suppressed.
+        facts.agents[project.id] = [_agent(202)]
+        await monitoring._process_pass()
+        facts.agents[project.id] = []
+        await monitoring._process_pass()
+        await asyncio.sleep(0.2)
+        assert triggered == [(project.id, "agent_exit")], "cooldown must suppress repeat trigger"
+
+        # After cooldown expires, a new exit may trigger again.
+        await asyncio.sleep(0.45)
+        facts.agents[project.id] = [_agent(303)]
+        await monitoring._process_pass()
+        facts.agents[project.id] = []
+        await monitoring._process_pass()
+        await asyncio.sleep(0.2)
+        assert triggered == [(project.id, "agent_exit"), (project.id, "agent_exit")]
+        await monitoring.stop()
+
+    asyncio.run(run())
+    database.close()
+
+
+def test_identical_baseline_does_not_reschedule(tmp_path: Path) -> None:
+    """Repeated identical passes must not fire auto-inspection (CR-20 dedup)."""
+    project, database, facts, events, projects = _setup(tmp_path)
+    triggered: list[tuple[UUID, str]] = []
+
+    async def auto_inspect(project_id: UUID, reason: str) -> None:
+        triggered.append((project_id, reason))
+
+    monitoring = MonitoringService(
+        projects,
+        facts,
+        database,
+        events,
+        auto_inspect=auto_inspect,
+        process_seconds=60,
+        stable_seconds=0.01,
+        cooldown_seconds=0,
+    )
+
+    async def run() -> None:
+        facts.agents[project.id] = [_agent(101)]
+        await monitoring._deep_pass()
+        await monitoring._reconcile_pass()
+        await monitoring._process_pass()
+        facts.agents[project.id] = []
+        await monitoring._process_pass()
+        await asyncio.sleep(0.2)
+        assert triggered == [(project.id, "agent_exit")]
+
+        # Same state repeated (no agents, same digest/reconcile): no trigger.
+        await monitoring._deep_pass()
+        await monitoring._reconcile_pass()
+        await monitoring._process_pass()
+        await asyncio.sleep(0.2)
+        assert triggered == [(project.id, "agent_exit")], "identical baseline must not retrigger"
+        await monitoring.stop()
+
+    asyncio.run(run())
+    database.close()
+
+
+def test_pending_target_replaced_by_newer_change(tmp_path: Path) -> None:
+    """A newer change during the stable window replaces the pending target."""
+    project, database, facts, events, projects = _setup(tmp_path)
+    triggered: list[tuple[UUID, str]] = []
+
+    async def auto_inspect(project_id: UUID, reason: str) -> None:
+        triggered.append((project_id, reason))
+
+    monitoring = MonitoringService(
+        projects,
+        facts,
+        database,
+        events,
+        auto_inspect=auto_inspect,
+        process_seconds=60,
+        stable_seconds=0.3,
+        cooldown_seconds=0,
+    )
+
+    async def run() -> None:
+        facts.agents[project.id] = [_agent(101)]
+        await monitoring._deep_pass()
+        await monitoring._reconcile_pass()
+        await monitoring._process_pass()
+        facts.agents[project.id] = []
+        await monitoring._process_pass()  # schedules agent_exit target
+        await asyncio.sleep(0.05)  # inside the stable window
+
+        # Newer, more meaningful change replaces the pending target.
+        facts.reconcile[project.id] = (VcsFacts(), models.TestFacts(status="failed", failed=1))
+        await monitoring._reconcile_pass()
+        facts.reconcile[project.id] = (VcsFacts(), models.TestFacts(status="passed", passed=3))
+        await monitoring._reconcile_pass()
+
+        await asyncio.sleep(0.6)  # stable window expires
+        assert triggered == [(project.id, "test_result_changed")], (
+            "only the newest target may fire, exactly once"
+        )
+        await monitoring.stop()
+
+    asyncio.run(run())
+    database.close()
