@@ -257,12 +257,12 @@ Implemented and verified on branch `fix/inspection-real-machine-reliability`
 | CR-16 WebSocket event stream | Implemented (2026-08-04) | authenticated `/api/v1/events`, reconnect, tests |
 | CR-17 `considered_paths` | Implemented (2026-08-04) | protocol/collectors/UI renamed; tests |
 | CR-18 snapshot append/index atomicity | Implemented (2026-08-04) | startup reconciliation + tests |
-| CR-19 raw-report compaction/DPAPI Windows tests | Open | non-Windows fallback exists; Windows DPAPI and compaction tests pending |
-| CR-20 monitoring scheduler split | Open | sequential loop remains; Watchdog split pending |
-| CR-21 Windows process association validation | Open | fixtures and Windows integration tests pending |
-| CR-22 control-pipe ACL tests | Open | token secrecy only; current-user ACL tests pending |
+| CR-19 raw-report compaction/DPAPI Windows tests | Done (2026-08-09) | DPAPI round-trip, wrapped-key non-plaintext, expiry-undecryptable + end-to-end tests; compaction/quarantine already implemented |
+| CR-20 monitoring scheduler split | Done (2026-08-09) | three schedulers + Watchdog + bounded concurrency; cooldown/dedup/pending-replacement/restart tests added |
+| CR-21 Windows process association validation | Done (2026-08-09) | fixtures + real OpenCode binary (`opencode serve`) association test |
+| CR-22 control-pipe ACL tests | Done (2026-08-09) | current-user-only DACL; malformed/non-dict/unknown-command rejection tests; cross-user documented as needing a second logon session |
 | CR-23 dependency lockfiles | Partial | npm `package-lock.json` committed; Python lock and Dependabot pending |
-| CR-24 build/installer proof | Partial | Sidecar PyInstaller exe built and smoke-tested locally (health/projects/auth); NSIS clean-VM install/uninstall still pending |
+| CR-24 build/installer proof | Partial (2026-08-09) | Sidecar PyInstaller exe built and smoke-tested locally; NSIS install/uninstall/first-run smoke green on CI `windows-installer`; crash-recovery restart gate unit-tested; interactive tray lifecycle pending final clean-VM session |
 
 Issues #19/#20 have passing evidence but are not closed: closing and opening the
 PR is an external action requiring user authorization.
