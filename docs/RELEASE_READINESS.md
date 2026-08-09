@@ -18,12 +18,12 @@ python -m compileall -q apps/sidecar/idlerdream  -> ok
 npm run typecheck                          -> ok
 ```
 
-Full suite: `python -m pytest apps/sidecar/tests` → 97 passed, 1 skipped
-(off-Windows TCP fallback).
+Full suite: `python -m pytest apps/sidecar/tests` → 101 passed, 1 skipped
+(off-Windows TCP fallback; head `6d026fe`, 2026-08-08 — prior 97 at `590fa5b`).
 
 ## Gate B — full repository CI: PARTIAL
 
-- Sidecar suite: passed (97).
+- Sidecar suite: passed (101; 1 skipped — off-Windows TCP fallback).
 - Ruff: passed — `apps/sidecar` is clean (all baseline findings fixed).
 - TypeScript: passed.
 - Electron build: `npm run build` → win-unpacked generated.
@@ -99,7 +99,7 @@ via the PR #21 review-fix package. 30 edits across 9 files plus 2 new files
 Automated gates re-run on 2026-08-08 (Windows, Python 3.14.6 / Node 24.17.0):
 
 ```text
-python -m pytest apps/sidecar/tests                -> 97 passed, 1 skipped
+python -m pytest apps/sidecar/tests                -> 101 passed, 1 skipped (head 6d026fe; prior 97 at 590fa5b)
 python -m ruff check apps/sidecar/...              -> All checks passed
 python -m compileall -q apps/sidecar/idlerdream    -> ok
 python scripts/verify_assets.py                    -> asset verification passed

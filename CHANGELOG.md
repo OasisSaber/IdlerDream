@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — inspection reliability (PR #21, branch `fix/inspection-real-machine-reliability`)
+
+- Filtered physical workspace snapshot for inspection: sensitive/control-file
+  exclusion, 40-file / 200 KiB / 2 MiB budgets, before/after fingerprint.
+- OpenCode real-machine reliability: provider-auth isolation, configured-model
+  resolution, npm-shim executable resolution, assistant-text-only report
+  extraction (OpenCode 1.18.12 verified, Gates C/D/E).
+- Report normalization with `full` / `partial` / `failed` quality, deterministic
+  identity checks (project ID, workspace fingerprint, required `schema_version`),
+  partial confidence cap and parse diagnostics.
+- Per-job isolated OpenCode run profile (HOME/USERPROFILE/XDG/OPENCODE_CONFIG_DIR,
+  single-provider `auth.json`) with cleanup on success, failure, cancel and timeout.
+- Restricted inspection privacy boundary: only README/root docs/`docs/*.{md,txt,rst}`
+  enter the model snapshot; source bodies are never copied.
+- Model-supplied facts are always demoted to `kind=model`, `deterministic=false`
+  (prompt requires `facts: []`).
+- High-confidence hardcoded secret-content guard: matching files are excluded
+  from the snapshot before model exposure without recording their content.
+- Snapshot file budget aligned to the frozen v0.1 contract (40 files).
+- Windows process cancellation correction: `CREATE_NEW_PROCESS_GROUP` +
+  CTRL_BREAK with process-tree fallback (`subprocess.CREATE_NEW_PROCESS_GROUP`).
+- Reliability UI: full/partial/failed inspection states, honest budget ceilings,
+  snapshot-isolation strip, warnings surface.
+- UI test suite (`npm run test:ui`, vitest + Testing Library) added to GitHub
+  Actions CI (CR21-07).
+
 ### Remaining work merged before the v0.1.0 tag is cut
 
 The v0.1.0 release is **not yet tagged**. The following items are required before

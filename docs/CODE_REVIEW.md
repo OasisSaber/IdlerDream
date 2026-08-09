@@ -272,7 +272,7 @@ PR is an external action requiring user authorization.
 A merge-before review of PR #21 (`fix/inspection-real-machine-reliability`,
 head `590fa5b`) found ten pre-merge defects (CR21-01 … CR21-10). All were
 fixed on the branch and verified by the full automated suite
-(`97 passed, 1 skipped`; ruff clean; `test:ui` 9 passed; typecheck and build
+(`101 passed, 1 skipped` at head `6d026fe`; ruff clean; `test:ui` 9 passed; typecheck and build
 pass). Evidence: `docs/VALIDATION_REPORT.md`, `docs/RELEASE_READINESS.md`.
 
 | Finding | Severity | Resolution |
