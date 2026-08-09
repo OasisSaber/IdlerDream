@@ -6,7 +6,7 @@ import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRestartGate } from "../src/lib/sidecarRestart.js";
+import { createRestartGate } from "./sidecarRestart.js";
 
 const sidecarRestartGate = createRestartGate(3, 60_000);
 
