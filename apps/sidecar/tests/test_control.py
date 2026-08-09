@@ -95,6 +95,19 @@ def _pipe_request(pipe_name: str, payload: dict[str, Any]) -> dict[str, Any]:
         win32file.CloseHandle(handle)
 
 
+def _pipe_raw_request(pipe_name: str, raw: bytes) -> dict[str, Any]:
+    """Send raw bytes over the pipe and parse the JSON response."""
+    import win32file
+
+    handle = _open_pipe(pipe_name)
+    try:
+        win32file.WriteFile(handle, raw + b"\n")
+        _, data = win32file.ReadFile(handle, 65536)
+        return json.loads(data.decode("utf-8"))
+    finally:
+        win32file.CloseHandle(handle)
+
+
 def _unique_profile() -> str:
     return f"test-{os.getpid()}-{time.monotonic_ns()}"
 
@@ -196,6 +209,50 @@ def test_control_pipe_serves_valid_token() -> None:
         assert echo == {"ok": True, "result": {"echo": {"a": 1}}}
 
     _run_scenario(profile, token, scenario)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="named pipe negative test requires Windows")
+def test_control_pipe_rejects_malformed_json() -> None:
+    profile = _unique_profile()
+
+    def scenario(pipe_name: str) -> None:
+        response = _pipe_raw_request(pipe_name, b"not-json{{{")
+        assert response["ok"] is False
+        assert "Invalid control request" in response["error"]
+
+    _run_scenario(profile, "real-token", scenario)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="named pipe negative test requires Windows")
+def test_control_pipe_rejects_non_dict_payload() -> None:
+    profile = _unique_profile()
+
+    def scenario(pipe_name: str) -> None:
+        # A JSON array is not a command object; it must be rejected without
+        # crashing the server (regression for CR-22 type-shape validation).
+        response = _pipe_raw_request(pipe_name, b'["not", "an", "object"]')
+        assert response["ok"] is False
+        assert "Invalid control request" in response["error"]
+        # The server must still serve a valid request afterwards.
+        ok = _pipe_request(pipe_name, {"token": "real-token", "command": "ping", "payload": {}})
+        assert ok == {"ok": True, "result": {"status": "ok"}}
+
+    _run_scenario(profile, "real-token", scenario)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="named pipe negative test requires Windows")
+def test_control_pipe_rejects_unknown_command() -> None:
+    profile = _unique_profile()
+
+    def scenario(pipe_name: str) -> None:
+        response = _pipe_request(
+            pipe_name,
+            {"token": "real-token", "command": "definitely-not-a-command", "payload": {}},
+        )
+        assert response["ok"] is False
+        assert "Unknown command" in response["error"]
+
+    _run_scenario(profile, "real-token", scenario)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="TCP fallback exists only off-Windows")
