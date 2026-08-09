@@ -274,7 +274,7 @@ Full detail: `docs/INSPECTION_COMPATIBILITY.md`.
   code — root `opencode.json(c)` excluded, 40-file budget, Restricted-mode
   doc allowlist, secret-content guard, per-inspection Run Profile, model-facts
   demotion, required `schema_version`, Windows process-group fix, `test:ui` in
-  CI. Suite now `101 passed, 1 skipped`; real-machine revalidation passed
+  CI. Suite now `103 passed, 1 skipped` (head d78b9aa); real-machine revalidation passed
   (probe, 10/10 stability, two-provider concurrency, cancel/timeout cleanup).
 
 ## Scope check

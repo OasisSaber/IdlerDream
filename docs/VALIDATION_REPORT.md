@@ -205,7 +205,7 @@ PR #21 CodeReview fixes (CR21-01 … CR21-10) applied on branch
 re-run in this Windows environment:
 
 ```text
-python -m pytest apps/sidecar/tests                      -> 101 passed, 1 skipped (head 6d026fe, 2026-08-08; prior 97 at 590fa5b)
+python -m pytest apps/sidecar/tests                      -> 103 passed, 1 skipped (head d78b9aa, 2026-08-09; 101 at 6d026fe, 97 at 590fa5b)
 python -m ruff check apps/sidecar/idlerdream
   apps/sidecar/tests apps/sidecar/launcher.py            -> All checks passed
 python -m compileall -q apps/sidecar/idlerdream          -> passed
