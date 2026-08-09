@@ -228,3 +228,54 @@ def test_windows_protection_never_uses_dev_key_fallback(tmp_path: Path) -> None:
     fallback_key = AESGCM.generate_key(bit_length=256)
     with pytest.raises(InvalidTag):
         AESGCM(fallback_key).decrypt(nonce, body, b"idlerdream-raw-report-key-v1")
+
+
+# ---- CR-19: Windows DPAPI end-to-end and expiry guarantees ----
+
+@pytest.mark.skipif(os.name != "nt", reason="DPAPI is the Windows production path")
+def test_key_protector_dpapi_roundtrip_and_no_plaintext_on_disk(tmp_path: Path) -> None:
+    """DPAPI protect/unprotect round-trips; the wrapped key is not plaintext."""
+    protector = KeyProtector(tmp_path)
+    secret = b"per-report-aes-key-material-0123456789"
+    wrapped = protector.protect(secret)
+    assert wrapped != secret, "DPAPI output must never equal the plaintext key"
+    assert protector.unprotect(wrapped) == secret
+
+    # The wrapped bytes stored in the DB must not contain the plaintext.
+    assert secret not in wrapped
+
+
+@pytest.mark.skipif(os.name != "nt", reason="DPAPI is the Windows production path")
+def test_raw_report_dpapi_encrypted_end_to_end(tmp_path: Path) -> None:
+    """Save/read through the real DPAPI protector on Windows."""
+    database = Database(tmp_path / "db.sqlite3")
+    project = Project(name="demo", path=str(tmp_path / "workspace"))
+    database.add_project(project)
+    protector = KeyProtector(tmp_path)
+    store = RawReportStore(tmp_path / "raw", database, protector)
+
+    report_id = store.save(project.id, {"facts": ["a"], "secret": "payload"})
+    row = database.get_raw_report_key(report_id)
+    assert row is not None and row["wrapped_key"] is not None
+    assert b"payload" not in row["wrapped_key"], "payload must never be wrapped into the key"
+
+    loaded = store.read(report_id)
+    assert loaded == {"facts": ["a"], "secret": "payload"}
+    database.close()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="DPAPI is the Windows production path")
+def test_raw_report_expired_cannot_be_decrypted(tmp_path: Path) -> None:
+    """An expired raw report's key is destroyed; reads must fail cleanly."""
+    database = Database(tmp_path / "db.sqlite3")
+    project = Project(name="demo", path=str(tmp_path / "workspace"))
+    database.add_project(project)
+    store = RawReportStore(tmp_path / "raw", database, KeyProtector(tmp_path))
+
+    report_id = store.save(project.id, {"secret": "expire me"}, retention_days=0)
+    assert store.read(report_id) == {"secret": "expire me"}
+    assert store.destroy_expired() == 1
+    with pytest.raises(KeyError):
+        store.read(report_id)
+    # The ciphertext may remain until compaction, but must be unreadable.
+    database.close()
