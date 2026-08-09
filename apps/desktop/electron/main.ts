@@ -6,6 +6,9 @@ import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRestartGate } from "../src/lib/sidecarRestart.js";
+
+const sidecarRestartGate = createRestartGate(3, 60_000);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const API_PORT = 38173;
@@ -24,7 +27,6 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let sidecar: ChildProcess | null = null;
 let isQuitting = false;
-const restartTimes: number[] = [];
 
 function sidecarExecutable(): string {
   if (!app.isPackaged) return process.env.IDLERDREAM_PYTHON ?? "python";
@@ -36,11 +38,7 @@ function sidecarArgs(): string[] {
 }
 
 function mayRestartSidecar(): boolean {
-  const now = Date.now();
-  while (restartTimes.length && now - restartTimes[0] > 60_000) restartTimes.shift();
-  if (restartTimes.length >= 3) return false;
-  restartTimes.push(now);
-  return true;
+  return sidecarRestartGate.mayRestart();
 }
 
 function spawnSidecar(): void {
