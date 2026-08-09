@@ -484,3 +484,53 @@ def test_pending_target_replaced_by_newer_change(tmp_path: Path) -> None:
 
     asyncio.run(run())
     database.close()
+
+
+def test_restart_clears_cooldown_and_pending_state(tmp_path: Path) -> None:
+    """A fresh MonitoringService (restart) forgets cooldown/pending state (CR-20)."""
+    project, database, facts, events, projects = _setup(tmp_path)
+    first: list[tuple[UUID, str]] = []
+    second: list[tuple[UUID, str]] = []
+
+    async def auto_inspect_first(project_id: UUID, reason: str) -> None:
+        first.append((project_id, reason))
+
+    async def auto_inspect_second(project_id: UUID, reason: str) -> None:
+        second.append((project_id, reason))
+
+    async def run() -> None:
+        # First service: fire one trigger so cooldown/pending would be set.
+        monitoring_a = MonitoringService(
+            projects, facts, database, events,
+            auto_inspect=auto_inspect_first,
+            process_seconds=60, stable_seconds=0.01, cooldown_seconds=3600,
+        )
+        facts.agents[project.id] = [_agent(101)]
+        await monitoring_a._deep_pass()
+        await monitoring_a._reconcile_pass()
+        await monitoring_a._process_pass()
+        facts.agents[project.id] = []
+        await monitoring_a._process_pass()
+        await asyncio.sleep(0.15)
+        assert first == [(project.id, "agent_exit")]
+        await monitoring_a.stop()
+
+        # Restart: new instance starts with an empty _last_auto, so the same
+        # change sequence may trigger again immediately.
+        monitoring_b = MonitoringService(
+            projects, facts, database, events,
+            auto_inspect=auto_inspect_second,
+            process_seconds=60, stable_seconds=0.01, cooldown_seconds=3600,
+        )
+        facts.agents[project.id] = [_agent(202)]
+        await monitoring_b._deep_pass()
+        await monitoring_b._reconcile_pass()
+        await monitoring_b._process_pass()
+        facts.agents[project.id] = []
+        await monitoring_b._process_pass()
+        await asyncio.sleep(0.15)
+        assert second == [(project.id, "agent_exit")], "restart must reset cooldown state"
+        await monitoring_b.stop()
+
+    asyncio.run(run())
+    database.close()
