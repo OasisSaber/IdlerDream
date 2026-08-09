@@ -479,6 +479,18 @@ class OpenCodeAdapter:
             )
         finally:
             self._running.pop(job_id, None)
+            if process is not None and process.returncode is None:
+                # Exception path (callback/parser failure) must not leak a
+                # running OpenCode process: terminate it and wait briefly,
+                # falling back to the process-tree kill.
+                try:
+                    if os.name == "nt":
+                        process.send_signal(signal.CTRL_BREAK_EVENT)
+                    else:
+                        process.terminate()
+                    await asyncio.wait_for(process.wait(), timeout=7)
+                except (ProcessLookupError, TimeoutError, OSError):
+                    _terminate_process_tree(process.pid)
             snapshot.cleanup()
             run_profile.cleanup()
 
