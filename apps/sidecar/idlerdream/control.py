@@ -71,6 +71,8 @@ class ControlServer:
             request = json.loads(line.decode("utf-8"))
         except (ValueError, UnicodeDecodeError) as exc:
             return {"ok": False, "error": f"Invalid control request: {exc}"}
+        if not isinstance(request, dict):
+            return {"ok": False, "error": "Invalid control request: expected a JSON object"}
         if request.get("token") != self.token:
             return {"ok": False, "error": "Unauthorized control request"}
         payload = await self.handler(request)

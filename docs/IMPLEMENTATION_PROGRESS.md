@@ -277,6 +277,26 @@ Full detail: `docs/INSPECTION_COMPATIBILITY.md`.
   CI. Suite now `103 passed, 1 skipped` (head d78b9aa); real-machine revalidation passed
   (probe, 10/10 stability, two-provider concurrency, cancel/timeout cleanup).
 
+## Release hardening (2026-08-09)
+
+PR #21 merged to `main` (`d711493e`, squash). GH-19/GH-20 closed. Remaining
+release blockers addressed on branch `fix/inspection-real-machine-reliability`
+(head `6bf7bb2`):
+
+- **CR-22** — control pipe rejects malformed JSON, non-dict payloads and
+  unknown commands (type-shape validation + 3 negative tests).
+- **CR-20** — cooldown, identical-baseline dedup, pending-target replacement
+  and restart-recovery tests added (plan test list complete).
+- **CR-19** — Windows DPAPI end-to-end round-trip, wrapped-key non-plaintext
+  and expiry-undecryptable tests added.
+- **CR-21** — real OpenCode binary (`opencode serve`) process association test.
+- **CR-24** — Sidecar restart gate extracted (`src/lib/sidecarRestart.ts`,
+  3 attempts / rolling 60 s) and unit-tested; NSIS install/uninstall/first-run
+  smoke green on CI `windows-installer`.
+
+Suite: `114 passed, 1 skipped`; UI tests `12 passed`; ruff clean; typecheck
+and build pass; CI (run 31310683136) all green.
+
 ## Scope check
 
 No frozen v0.1 exclusion was introduced: no Agent task dispatch/control, no

@@ -35,14 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Remaining work merged before the v0.1.0 tag is cut
 
-The v0.1.0 release is **not yet tagged**. The following items are required before
-the tag and GitHub release can be executed:
+The v0.1.0 release is **not yet tagged**. Status as of 2026-08-09:
 
-- [CR-19] Raw-report storage: weekly compaction and Windows DPAPI end-to-end validation (#6)
-- [CR-20] Monitoring architecture that meets the stated 50-project target (#7)
-- [CR-21] Windows process association and resource sampling production validation (#8)
-- [CR-22] Control-pipe authorization: current-user-only ACLs and negative tests (#9)
-- [CR-24 remainder] Clean Windows VM pass: tray lifecycle and Sidecar crash recovery
+- [x] [CR-19] Raw-report storage: weekly compaction and Windows DPAPI end-to-end validation (#6) — DPAPI protect/unprotect round-trip, expiry-undecryptable and end-to-end tests added
+- [x] [CR-20] Monitoring architecture that meets the stated 50-project target (#7) — scheduler split, Watchdog, cooldown/dedup/pending-replacement tests added
+- [x] [CR-21] Windows process association and resource sampling production validation (#8) — fixtures plus real OpenCode binary association test
+- [x] [CR-22] Control-pipe authorization: current-user-only ACLs and negative tests (#9) — malformed/non-dict/unknown-command rejection tests added
+- [ ] [CR-24 remainder] Clean Windows VM pass: interactive tray lifecycle and Sidecar crash recovery — crash-recovery restart gate unit-tested; NSIS install/uninstall smoke green on CI; interactive tray lifecycle pending final clean-VM session
 
 ## [0.1.0] - 2026-08-03 (pending tag)
 

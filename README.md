@@ -19,8 +19,10 @@ Agent 进程。它持续收集确定性本地事实，并通过受限的 OpenCod
   工作区指纹全部正确，真实工作区未被修改。
 - **Gate E（项目矩阵）**：通过 — 小型 Git 项目、中型仓库、hostile 项目、
   含空格与中文路径、非 Git 目录共 5/5 有效。
-- **Gate B（部分）**：Sidecar 已打包并冒烟通过，NSIS 安装器本机构建成功
-  （231MB；未配置 Authenticode 证书，不声称已签名）；干净虚拟机安装/卸载仍属 CR-24。
+- **Gate B（部分 → 接近完成）**：Sidecar 已打包并冒烟通过，NSIS 安装器本机构建成功
+  （231MB；未配置 Authenticode 证书，不声称已签名）；干净 runner 上的安装/卸载/
+  首次启动冒烟已由 CI `windows-installer` 覆盖；交互式 tray 生命周期待最终
+  clean-VM 会话（CR-24 余项）。
 - **Gate F（UI 质量）**：接近完成 — 预览页与桌面应用在明/暗模式下 axe
   （wcag2a/2aa/21aa + best-practice）均 0 违规；键盘走查通过；四种尺寸与
   应用三态（full/partial/failed）截图已采集（`output/playwright/`）；真实
