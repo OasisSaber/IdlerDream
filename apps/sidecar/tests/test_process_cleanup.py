@@ -100,6 +100,10 @@ def test_callback_exception_terminates_process_and_cleans_up(
         (workspace / "README.md").write_text("# cleanup fixture", encoding="utf-8")
         project = _make_project(workspace)
 
+        # CI runners may not have opencode installed; force the availability
+        # gate so the mocked subprocess path is actually exercised.
+        monkeypatch.setattr(OpenCodeAdapter, "available", lambda self: True)
+
         fake = FakeProcess()
         fake.stdout = _OneEventStream()  # emit one event so on_progress fires mid-run
         created: list[FakeProcess] = []
@@ -160,6 +164,8 @@ def test_normal_exit_needs_no_forced_termination(
                 self.returncode = 0  # already exited
 
         fake = ExitedProcess()
+
+        monkeypatch.setattr(OpenCodeAdapter, "available", lambda self: True)
 
         async def fake_create_subprocess_exec(*args, **kwargs):
             return fake
