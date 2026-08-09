@@ -50,7 +50,11 @@ class InspectionService:
         for existing in self._jobs.values():
             if existing.project_id == project.id and existing.status in {"queued", "running"}:
                 return existing
-        job = InspectionJob(project_id=project.id, source=source)
+        job = InspectionJob(
+            project_id=project.id,
+            source=source,
+            budget={"max_files": 40, "max_content_mb": 2, "max_tool_calls": 100},
+        )
         self._jobs[job.id] = job
         task = asyncio.create_task(self._run(job), name=f"inspection-{job.id}")
         self._tasks[job.id] = task
@@ -96,6 +100,7 @@ class InspectionService:
                 outcome = await self.inspector.inspect(
                     str(job.id), project, baseline, on_progress=on_progress
                 )
+                job.warnings = list(outcome.warnings)
                 end_baseline = await self.facts.collect(project)
                 raw_report_id = self.raw_reports.save(
                     project.id,
@@ -107,6 +112,8 @@ class InspectionService:
                         "stderr_tail": outcome.stderr_tail,
                         "error": outcome.error,
                         "warnings": outcome.warnings,
+                        "parse_diagnostics": outcome.diagnostics,
+                        "inspection_snapshot": outcome.snapshot,
                     },
                     retention_days=7,
                 )
@@ -119,6 +126,8 @@ class InspectionService:
                         stderr_tail=outcome.stderr_tail,
                         error="Workspace changed during inspection",
                         warnings=[*outcome.warnings, f"raw_report_id={raw_report_id}"],
+                        diagnostics=outcome.diagnostics,
+                        snapshot=outcome.snapshot,
                     )
                     job.status = "invalidated"
                 state = merge_state(
@@ -132,11 +141,15 @@ class InspectionService:
                 if materially_changed(previous, state):
                     event = SnapshotEvent(
                         project_id=project.id,
-                        event_type="inspection" if job.status != "invalidated" else "state_invalidated",
+                        event_type=(
+                            "inspection" if job.status != "invalidated" else "state_invalidated"
+                        ),
                         state=state,
                         baseline_fingerprint=end_baseline.workspace_fingerprint,
                         analysis_version=(
-                            outcome.report.analysis_version if outcome.report else {"adapter": "failed"}
+                            outcome.report.analysis_version
+                            if outcome.report
+                            else {"adapter": "failed"}
                         ),
                     )
                     self.snapshots.append(event)

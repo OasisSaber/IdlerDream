@@ -12,6 +12,7 @@ export type Freshness = "current" | "possibly_stale" | "expired" | "never_inspec
 export type ActivityState = "active" | "inactive" | "archived";
 export type InspectionPermission = "standard_source" | "restricted" | "local_only";
 export type NextActor = "user" | "agent" | "none";
+export type ReportQuality = "full" | "partial" | "failed";
 
 export interface AcceptanceCriterion {
   id: string;
@@ -128,6 +129,8 @@ export interface CurrentProjectState {
   updated_at: string;
   needs_user_attention: boolean;
   inspection_error?: string | null;
+  inspection_quality: ReportQuality;
+  inspection_warnings: string[];
 }
 
 export interface ProjectEnvelope {
@@ -147,4 +150,6 @@ export interface InspectionJob {
   elapsed_seconds: number;
   last_activity: string;
   error?: string | null;
+  warnings: string[];
+  budget: Record<string, number>;
 }

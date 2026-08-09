@@ -1,0 +1,39 @@
+.inspection-panel--reliable .inspection-security-strip {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  border: 1px solid rgba(0, 122, 255, .2);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  background: var(--blue-soft);
+}
+
+.inspection-security-strip > svg {
+  width: 19px;
+  color: var(--blue);
+}
+
+.inspection-security-strip strong,
+.inspection-security-strip span { display: block; }
+.inspection-security-strip strong { font-size: 11px; font-weight: 680; }
+.inspection-security-strip span { margin-top: 2px; color: var(--text-secondary); font-size: 9px; line-height: 1.45; }
+
+.inspection-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0;
+  border-radius: var(--radius-sm);
+  padding: 9px 10px;
+  color: var(--yellow);
+  background: var(--yellow-soft);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.inspection-warning svg { width: 15px; flex: 0 0 15px; margin-top: 1px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .inspection-panel--reliable .pulse-chip i { animation: none; }
+}

@@ -21,6 +21,7 @@ def test_model_completion_conflicts_with_failed_tests(tmp_path) -> None:
         tests=ModelTestFacts(status="failed", failed=2, summary="2 failed"),
     )
     report = InspectionReport(
+        schema_version=1,
         project_id=project.id,
         workspace_fingerprint="fingerprint",
         core_status=CoreStatus.COMPLETED,

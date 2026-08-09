@@ -1,11 +1,14 @@
 node_modules/
 dist/
-build/
 dist-electron/
+dist-mock/
+build/
 release/
 .vite/
 __pycache__/
 .pytest_cache/
+.playwright-cli/
+.reasonix/
 .venv/
 *.pyc
 *.pyo

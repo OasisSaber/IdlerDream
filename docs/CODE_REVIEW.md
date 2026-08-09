@@ -241,3 +241,55 @@ Frontend dependency installation and packaged Electron/NSIS build remain environ
 ## Release recommendation
 
 **Do not publish a binary release from this asset package.** Use it as the initial private repository baseline. The first implementation milestone should resolve CR-14 through CR-18 and produce a reproducible Windows development build; the second should focus on CR-19 through CR-24 and clean-VM release readiness.
+
+## Status update — 2026-08-06 (inspection reliability)
+
+Implemented and verified on branch `fix/inspection-real-machine-reliability`
+(commits `b09a263`, `f2fd883`, `8ce40d9`). Evidence: `docs/VALIDATION_REPORT.md`,
+`docs/INSPECTION_COMPATIBILITY.md`, `docs/RELEASE_READINESS.md`.
+
+| Item | Status | Evidence |
+|---|---|---|
+| #19 OpenCode cannot read under old policy | Code complete; real-machine Gate C passed | OpenCode 1.18.12 + `opencode-go/deepseek-v4-flash`, read OK, secrets absent, writes denied, snapshot unchanged |
+| #20 strict parser fails on model variance | Code complete; real-machine Gates D/E passed | 10/10 stability; 5/5 project matrix; JSON5 repair + assistant-text event filtering |
+| CR-14 two-stage project removal | Implemented (2026-08-04) | recycle bin, restore/purge, expiry, migration tests |
+| CR-15 onboarding/settings flows | Partial | Onboarding step 4 + add-workspace dialog real; steps 0–2 remain visual prototypes |
+| CR-16 WebSocket event stream | Implemented (2026-08-04) | authenticated `/api/v1/events`, reconnect, tests |
+| CR-17 `considered_paths` | Implemented (2026-08-04) | protocol/collectors/UI renamed; tests |
+| CR-18 snapshot append/index atomicity | Implemented (2026-08-04) | startup reconciliation + tests |
+| CR-19 raw-report compaction/DPAPI Windows tests | Open | non-Windows fallback exists; Windows DPAPI and compaction tests pending |
+| CR-20 monitoring scheduler split | Open | sequential loop remains; Watchdog split pending |
+| CR-21 Windows process association validation | Open | fixtures and Windows integration tests pending |
+| CR-22 control-pipe ACL tests | Open | token secrecy only; current-user ACL tests pending |
+| CR-23 dependency lockfiles | Partial | npm `package-lock.json` committed; Python lock and Dependabot pending |
+| CR-24 build/installer proof | Partial | Sidecar PyInstaller exe built and smoke-tested locally (health/projects/auth); NSIS clean-VM install/uninstall still pending |
+
+Issues #19/#20 have passing evidence but are not closed: closing and opening the
+PR is an external action requiring user authorization.
+
+## Status update — 2026-08-08 (PR #21 CodeReview follow-up)
+
+A merge-before review of PR #21 (`fix/inspection-real-machine-reliability`,
+head `590fa5b`) found ten pre-merge defects (CR21-01 … CR21-10). All were
+fixed on the branch and verified by the full automated suite
+(`103 passed, 1 skipped` at head `d78b9aa`; ruff clean; `test:ui` 9 passed; typecheck and build
+pass). Evidence: `docs/VALIDATION_REPORT.md`, `docs/RELEASE_READINESS.md`.
+
+| Finding | Severity | Resolution |
+|---|---|---|
+| CR21-01 root `opencode.json(c)` enters snapshot | High / Security | excluded + classified `agent_control_file` |
+| CR21-02 concurrent inspections share OpenCode HOME/auth | High / Security + Correctness | per-job ephemeral `OpenCodeRunProfile` (HOME/XDG/config), cleanup on all paths |
+| CR21-03 model can declare deterministic facts | High / Trust Boundary | prompt requires `facts: []`; parser demotes every model fact to `kind=model`, `deterministic=false` |
+| CR21-04 `schema_version` invented by normalizer | Medium | required core field; only `schemaVersion` alias accepted |
+| CR21-05 snapshot budget 200 vs frozen 40 | Medium | `SnapshotPolicy.max_files = 40` |
+| CR21-06 Windows CTRL_BREAK constant wrong | Medium | `subprocess.CREATE_NEW_PROCESS_GROUP` + `OSError` tree-kill fallback |
+| CR21-07 UI tests absent from CI | Medium | `npm run test:ui` added before typecheck |
+| CR21-08 release docs inaccurate | Low | stale test counts replaced; “signed” claims removed (no Authenticode certificate configured); 40-file budget documented |
+| CR21-09 Restricted mode copies full source | High / Privacy | allowlist: root README/docs + `docs/*.{md,txt,rst}` only; source bodies excluded (`restricted_permission`) |
+| CR21-10 hardcoded secrets in ordinary source | High / Security | local high-confidence scan; matching files excluded (`secret_content`) without recording content |
+
+Remaining before merge: the PR description sync (no product scope was
+introduced). Real-machine revalidation passed on 2026-08-08: read-only policy
+probe (OpenCode 1.18.12), 10/10 stability, two-provider concurrent isolation,
+CTRL_BREAK cancellation and timeout cleanup — evidence in
+`docs/VALIDATION_REPORT.md` and `docs/RELEASE_READINESS.md`.
