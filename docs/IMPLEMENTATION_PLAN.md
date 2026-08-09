@@ -91,18 +91,18 @@ Exit: clean Windows VM install and uninstallation pass.
 
 Exit: design-system checklist passes.
 
-## Milestone status — 2026-08-06
+## Milestone status — 2026-08-09
 
 Evidence: `docs/VALIDATION_REPORT.md`, `docs/INSPECTION_COMPATIBILITY.md`,
 `docs/RELEASE_READINESS.md`, `docs/CODE_REVIEW.md` (status update).
 
 | Milestone | Status | Notes |
 |---|---|---|
-| M0 repository health | Partial | Sidecar tests/typecheck/build pass; Ruff repository-wide findings remain (baseline style debt) |
-| M1 one-project manual inspection slice | Core slice done | add/list/facts/UI done; real OpenCode inspection works (Gate C) and merges reports |
-| M2 read-only policy proof | Done (2026-08-06) | filtered-snapshot isolation + compatibility probe passed on OpenCode 1.18.12 |
-| M3 continuous local monitoring | Partial | monitoring loop exists; Watchdog split and Windows process association pending |
-| M4 simplified automatic inspection | Partial | triggers exist; stability/cooldown tests pending production hardening |
-| M5 data resilience | Partial | weekly JSONL + SQLite rebuild + raw encryption exist; DPAPI/compaction pending |
-| M6 desktop and installer | Partial | tray/single-instance/restart limits exist; NSIS clean-VM install/uninstall pending (CR-24) |
-| M7 UI quality gate | Pending | reliability UI implemented and type-checked; visual regression screenshots pending (Gate F) |
+| M0 repository health | Done | Sidecar tests/typecheck/build/CI all green; Ruff clean (2026-08-08) |
+| M1 one-project manual inspection slice | Done | add/list/facts/UI done; real OpenCode inspection works (Gate C) and merges reports |
+| M2 read-only policy proof | Done (2026-08-06) | filtered-snapshot isolation + compatibility probe passed on OpenCode 1.18.12; re-verified 2026-08-09 (head 4406176+) |
+| M3 continuous local monitoring | Done (CR-20) | process/reconcile/deep schedulers split, bounded concurrency, Watchdog file events, cooldown/dedup covered by tests (2026-08-09) |
+| M4 simplified automatic inspection | Done (CR-20) | triggers (agent_exit, test_result_changed), stable window, cooldown, fingerprint dedup, no auto retry — tests added 2026-08-09 |
+| M5 data resilience | Done (CR-19) | weekly JSONL + SQLite rebuild + raw encryption + DPAPI + compaction + corrupted-container quarantine; Windows DPAPI tests added 2026-08-09 |
+| M6 desktop and installer | Partial | tray/single-instance/restart limits exist; crash-recovery gate unit-tested (CR-24); NSIS clean-VM install/uninstall smoke covered by CI; interactive tray lifecycle pending final clean-VM session |
+| M7 UI quality gate | Nearly complete | axe 0 violations light/dark, keyboard walk, component tests, screenshots done; system High Contrast screenshots pending final session |

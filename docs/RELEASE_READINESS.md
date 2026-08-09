@@ -21,9 +21,9 @@ npm run typecheck                          -> ok
 Full suite: `python -m pytest apps/sidecar/tests` → 103 passed, 1 skipped
 (off-Windows TCP fallback; head `d78b9aa`, 2026-08-09 — prior 101 at `6d026fe`, 97 at `590fa5b`).
 
-## Gate B — full repository CI: PARTIAL
+## Gate B — full repository CI: PARTIAL → nearly green (2026-08-09)
 
-- Sidecar suite: passed (101; 1 skipped — off-Windows TCP fallback).
+- Sidecar suite: passed (114; 1 skipped — off-Windows TCP fallback).
 - Ruff: passed — `apps/sidecar` is clean (all baseline findings fixed).
 - TypeScript: passed.
 - Electron build: `npm run build` → win-unpacked generated.
@@ -32,7 +32,9 @@ Full suite: `python -m pytest apps/sidecar/tests` → 103 passed, 1 skipped
   and included in win-unpacked.
 - NSIS installer: builds locally (231 MB; no Authenticode certificate
   configured — the previous “signed” claim was removed in the CR21-08 doc
-  sync); clean-VM install/uninstall smoke test blocked (CR-24).
+  sync); clean-VM install/uninstall smoke passed on CI `windows-installer`
+  (silent install, layout, first-run launch, uninstall, data preservation);
+  interactive tray lifecycle still requires a final clean-VM session (CR-24).
 
 ## Gate C — OpenCode compatibility: PASS
 

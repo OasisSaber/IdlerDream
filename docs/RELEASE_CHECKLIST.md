@@ -23,15 +23,15 @@
 
 ## 1. Code-review findings (Blockers)
 
-Tracked as GitHub issues; merge before release.
+Tracked as GitHub issues; merge before release. Status as of 2026-08-09:
 
-| ID | Issue | Gate |
-|----|-------|------|
-| CR-19 | Raw-report weekly compaction + Windows DPAPI end-to-end | #6, Blocker |
-| CR-20 | Monitoring architecture for 50-project target | #7, Blocker |
-| CR-21 | Windows process association production validation | #8, Blocker |
-| CR-22 | Control-pipe current-user ACLs + negative tests | #9, Blocker |
-| CR-24 | Clean Windows VM: tray lifecycle + Sidecar crash recovery | Blocker |
+| ID | Issue | Gate | Status |
+|----|-------|------|--------|
+| CR-19 | Raw-report weekly compaction + Windows DPAPI end-to-end | #6, Blocker | **Done** — DPAPI + compaction + quarantine implemented (#18); Windows DPAPI/expiry tests added 2026-08-09 |
+| CR-20 | Monitoring architecture for 50-project target | #7, Blocker | **Done** — three schedulers + Watchdog + cooldown/dedup; tests added 2026-08-09 |
+| CR-21 | Windows process association production validation | #8, Blocker | **Done** — fixtures + real OpenCode binary association test added 2026-08-09 |
+| CR-22 | Control-pipe current-user ACLs + negative tests | #9, Blocker | **Done** — DACL current-user-only + malformed/non-dict/unknown-command rejection tests (2026-08-09) |
+| CR-24 | Clean Windows VM: tray lifecycle + Sidecar crash recovery | Blocker | **Partial** — NSIS install/uninstall/first-run smoke green on CI; crash-recovery restart gate unit-tested; interactive tray lifecycle pending final clean-VM session |
 
 After each merge, update `docs/CODE_REVIEW.md` progress notes and re-run the full
 verification set in §4.
@@ -113,9 +113,9 @@ $installer = (Get-ChildItem "apps/desktop/dist/*Setup*.exe" | Select-Object -Fir
 powershell -File scripts/smoke-installer.ps1 -InstallerPath $installer -AppIdleSeconds 10
 ```
 
-Expected (state at drafting time): sidecar tests **30 passed, 1 skipped**
+Expected (state 2026-08-09): sidecar tests **114 passed, 1 skipped**
 (packaged-exe smoke test runs only after `scripts/build-sidecar.ps1`); asset
-verification passed; typecheck passed; build passed; CI all green.
+verification passed; typecheck passed; build passed; UI tests 12 passed; CI all green.
 
 ## 5. CI gates (Blocker)
 
