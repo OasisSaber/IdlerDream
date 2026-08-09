@@ -178,3 +178,49 @@ def test_real_windows_process_cwd_association(tmp_path: Path) -> None:
             child.wait(timeout=5)
         except subprocess.TimeoutExpired:
             child.kill()
+
+
+@pytest.mark.skipif(
+    os.name != "nt"
+    or not Path(r"C:\Users\Oasis\AppData\Roaming\npm\node_modules\opencode-ai\bin\opencode.exe").exists(),
+    reason="requires the real OpenCode binary on Windows",
+)
+def test_real_opencode_binary_association(tmp_path: Path) -> None:
+    """Spawn the real OpenCode server binary in the workspace and verify
+    psutil-based association (CR-21 real-machine validation for OpenCode)."""
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    opencode_exe = r"C:\Users\Oasis\AppData\Roaming\npm\node_modules\opencode-ai\bin\opencode.exe"
+    child = subprocess.Popen(
+        [opencode_exe, "serve"],
+        cwd=str(workspace),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    try:
+        collector = ProcessCollector({"opencode.exe", "opencode"})
+        deadline = time.monotonic() + 15
+        matched = None
+        while time.monotonic() < deadline:
+            agents = collector.collect_for_project(
+                Project(name="demo", path=str(workspace))
+            )
+            matched = next((item for item in agents if item.pid == child.pid), None)
+            if matched is not None:
+                break
+            time.sleep(0.3)
+        assert matched is not None, "real OpenCode server process was not associated"
+        assert matched.association_confidence >= 0.25
+        assert matched.name.lower().startswith("opencode")
+        assert matched.cwd is not None
+        assert Path(matched.cwd).resolve(strict=False) == workspace.resolve(strict=False)
+        assert matched.memory_bytes >= 0
+    finally:
+        child.terminate()
+        try:
+            child.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            child.kill()
