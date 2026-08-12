@@ -153,3 +153,51 @@ export interface InspectionJob {
   warnings: string[];
   budget: Record<string, number>;
 }
+
+// -- CR-15: Inspector configuration / status / validation contracts ---------
+
+export interface InspectorConfig {
+  provider?: string | null;
+  base_url?: string | null;
+  model?: string | null;
+  opencode_executable?: string | null;
+}
+
+export interface InspectorStatus {
+  opencode_available: boolean;
+  opencode_executable?: string | null;
+  opencode_version?: string | null;
+  provider?: string | null;
+  base_url?: string | null;
+  model?: string | null;
+  credential_configured: boolean;
+  connectivity_status: "unknown" | "passed" | "failed";
+  compatibility_status: "unverified" | "verified" | "failed";
+  connectivity_checked_at?: string | null;
+  compatibility_checked_at?: string | null;
+  deep_inspection_enabled: boolean;
+  warnings: string[];
+}
+
+export interface ConnectivityResult {
+  status: "passed" | "failed" | "timeout" | "provider_error" | "authentication_error" | "model_not_found";
+  model?: string | null;
+  provider?: string | null;
+  checked_at: string;
+  error?: string | null;
+}
+
+export interface CompatibilityResult {
+  status: "verified" | "failed";
+  opencode_version?: string | null;
+  model?: string | null;
+  ordinary_source_read: boolean;
+  sensitive_content_absent: boolean;
+  edit_denied: boolean;
+  shell_denied: boolean;
+  snapshot_unmodified: boolean;
+  started_at: string;
+  completed_at?: string | null;
+  warnings: string[];
+  error?: string | null;
+}

@@ -32,6 +32,13 @@ def build_context(settings: Settings | None = None) -> AppContext:
     # Reconcile weekly JSONL with the SQLite index before serving. This repairs
     # crash artifacts where the file append and index insert were not atomic.
     snapshots.reconcile()
+    from .services.inspector import InspectorService
+
+    inspector_service = InspectorService(
+        settings.data_dir,
+        executable=settings.opencode_executable,
+        model=settings.opencode_model,
+    )
     inspector = (
         MockInspectorAdapter()
         if settings.mock_inspector
@@ -51,6 +58,11 @@ def build_context(settings: Settings | None = None) -> AppContext:
         events,
         inspector,
         concurrency=settings.inspection_concurrency,
+        deep_gate=(
+            None
+            if settings.mock_inspector
+            else inspector_service.assert_deep_inspection_allowed
+        ),
     )
 
     async def auto_inspect(project_id, reason: str) -> None:
@@ -76,6 +88,7 @@ def build_context(settings: Settings | None = None) -> AppContext:
         snapshots=snapshots,
         raw_reports=raw_reports,
         events=events,
+        inspector=inspector_service,
     )
 
 

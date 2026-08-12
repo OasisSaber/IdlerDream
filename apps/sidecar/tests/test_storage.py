@@ -62,7 +62,9 @@ def test_reconcile_truncates_incomplete_trailing_record(tmp_path: Path) -> None:
         project_id=project.id, event_type="inspection", state=CurrentProjectState(project_id=project.id)
     )
     store.append(event)
-    path = store.directory / "2026-W32.jsonl"
+    weekly_files = sorted(store.directory.glob("*-W*.jsonl"))
+    assert weekly_files, "append must create the current ISO-week file"
+    path = weekly_files[-1]
     with path.open("ab") as handle:
         handle.write(b'{"snapshot_id":"truncated')  # partial write
 

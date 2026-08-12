@@ -13,6 +13,7 @@ from .config import Settings
 from .control import ControlServer
 from .database import Database
 from .events import EventBus
+from .services.inspector import InspectorService
 from .services.inspections import InspectionService
 from .services.monitoring import MonitoringService
 from .services.projects import ProjectService
@@ -30,6 +31,7 @@ class AppContext:
     snapshots: SnapshotStore
     raw_reports: RawReportStore
     events: EventBus
+    inspector: InspectorService
     control: ControlServer | None = None
 
 
@@ -64,6 +66,46 @@ async def handle_control(context: AppContext, request: dict[str, Any]) -> dict[s
         return job.model_dump(mode="json")
     if command == "inspection.cancel":
         return {"cancelled": await context.inspections.cancel(payload["job_id"])}
+    # CR-15: Inspector configuration, credentials and validation.
+    if command == "inspector.status":
+        return (await context.inspector.status()).model_dump(mode="json")
+    if command == "inspector.config.get":
+        return context.inspector.get_config().model_dump(mode="json")
+    if command == "inspector.config.update":
+        from .models import InspectorConfig
+
+        config = InspectorConfig(
+            provider=payload.get("provider"),
+            base_url=payload.get("base_url"),
+            model=payload.get("model"),
+            opencode_executable=payload.get("opencode_executable"),
+        )
+        return context.inspector.update_config(config).model_dump(mode="json")
+    if command == "inspector.credential.set":
+        provider = str(payload.get("provider") or "")
+        secret = str(payload.get("api_key") or "")
+        if not provider or not secret:
+            raise ValueError("provider and api_key are required")
+        context.inspector.set_credential(provider, secret)
+        return {"configured": True}
+    if command == "inspector.credential.delete":
+        provider = str(payload.get("provider") or "")
+        if not provider:
+            raise ValueError("provider is required")
+        context.inspector.delete_credential(provider)
+        return {"configured": False}
+    if command == "inspector.connectivity.test":
+        provider = str(payload.get("provider") or "")
+        model = str(payload.get("model") or "")
+        base_url = payload.get("base_url")
+        api_key = payload.get("api_key") or ""
+        result = await context.inspector.connectivity_test(
+            provider, str(base_url or ""), model, str(api_key)
+        )
+        return result.model_dump(mode="json")
+    if command == "inspector.compatibility.test":
+        result = await context.inspector.compatibility_test()
+        return result.model_dump(mode="json")
     raise ValueError(f"Unknown control command: {command}")
 
 

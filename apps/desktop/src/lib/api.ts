@@ -1,5 +1,12 @@
-import type { InspectionJob, ProjectEnvelope } from "@idlerdream/protocol";
-import { mockJobs, mockProjects } from "../data/mock";
+import type {
+  CompatibilityResult,
+  ConnectivityResult,
+  InspectionJob,
+  InspectorConfig,
+  InspectorStatus,
+  ProjectEnvelope,
+} from "@idlerdream/protocol";
+import { mockCompatibilityResult, mockInspectorConfig, mockInspectorStatus, mockJobs, mockProjects } from "../data/mock";
 
 let apiBase = "http://127.0.0.1:38173";
 let readToken = "";
@@ -144,4 +151,53 @@ export async function cancelInspection(jobId: string): Promise<unknown> {
 export async function openFolder(folderPath: string): Promise<void> {
   if (!window.idlerdream) throw new Error("IdlerDream Electron bridge is unavailable");
   await window.idlerdream.openFolder(folderPath);
+}
+
+// -- CR-15: Inspector configuration, credentials and validation -------------
+
+export async function fetchInspectorStatus(): Promise<InspectorStatus> {
+  if (mockMode) return structuredClone(mockInspectorStatus);
+  if (!window.idlerdream) throw new Error("IdlerDream control bridge is unavailable");
+  return window.idlerdream.control("inspector.status", {}) as Promise<InspectorStatus>;
+}
+
+export async function fetchInspectorConfig(): Promise<InspectorConfig> {
+  if (mockMode) return structuredClone(mockInspectorConfig);
+  if (!window.idlerdream) throw new Error("IdlerDream control bridge is unavailable");
+  return window.idlerdream.control("inspector.config.get", {}) as Promise<InspectorConfig>;
+}
+
+export async function updateInspectorConfig(config: InspectorConfig): Promise<InspectorConfig> {
+  if (mockMode) return structuredClone(config);
+  if (!window.idlerdream) throw new Error("IdlerDream control bridge is unavailable");
+  return window.idlerdream.control("inspector.config.update", { ...config }) as Promise<InspectorConfig>;
+}
+
+export async function setInspectorCredential(provider: string, apiKey: string): Promise<{ configured: boolean }> {
+  if (mockMode) return { configured: true };
+  if (!window.idlerdream) throw new Error("IdlerDream control bridge is unavailable");
+  return window.idlerdream.control("inspector.credential.set", { provider, api_key: apiKey }) as Promise<{ configured: boolean }>;
+}
+
+export async function deleteInspectorCredential(provider: string): Promise<{ configured: boolean }> {
+  if (mockMode) return { configured: false };
+  if (!window.idlerdream) throw new Error("IdlerDream control bridge is unavailable");
+  return window.idlerdream.control("inspector.credential.delete", { provider }) as Promise<{ configured: boolean }>;
+}
+
+export async function testInspectorConnectivity(provider: string, baseUrl: string, model: string, apiKey = ""): Promise<ConnectivityResult> {
+  if (mockMode) return { status: "passed", model, provider, checked_at: new Date().toISOString(), error: null };
+  if (!window.idlerdream) throw new Error("IdlerDream control bridge is unavailable");
+  return window.idlerdream.control("inspector.connectivity.test", {
+    provider,
+    base_url: baseUrl,
+    model,
+    api_key: apiKey,
+  }) as Promise<ConnectivityResult>;
+}
+
+export async function testInspectorCompatibility(): Promise<CompatibilityResult> {
+  if (mockMode) return structuredClone(mockCompatibilityResult);
+  if (!window.idlerdream) throw new Error("IdlerDream control bridge is unavailable");
+  return window.idlerdream.control("inspector.compatibility.test", {}) as Promise<CompatibilityResult>;
 }

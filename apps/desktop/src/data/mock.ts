@@ -1,4 +1,10 @@
-import type { InspectionJob, ProjectEnvelope } from "@idlerdream/protocol";
+import type {
+  CompatibilityResult,
+  InspectionJob,
+  InspectorConfig,
+  InspectorStatus,
+  ProjectEnvelope,
+} from "@idlerdream/protocol";
 
 const now = Date.now();
 const iso = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
@@ -49,3 +55,41 @@ export const mockProjects: ProjectEnvelope[] = [
 ];
 
 export const mockJobs: InspectionJob[] = [{ id: "job-001", project_id: mockProjects[0].project.id, source: "manual", status: "running", stage: "semantic_inspection", started_at: iso(2), finished_at: null, elapsed_seconds: 128, last_activity: "正在读取过滤后的巡检快照", error: null, warnings: [], budget: { max_files: 40, max_content_mb: 2 } }];
+
+export const mockInspectorConfig: InspectorConfig = {
+  provider: "deepseek",
+  base_url: "https://api.deepseek.com/v1",
+  model: "deepseek/deepseek-v4-flash",
+  opencode_executable: "opencode",
+};
+
+export const mockInspectorStatus: InspectorStatus = {
+  opencode_available: true,
+  opencode_executable: "C:\\Users\\Oasis\\AppData\\Roaming\\npm\\opencode.cmd",
+  opencode_version: "0.9.0",
+  provider: mockInspectorConfig.provider,
+  base_url: mockInspectorConfig.base_url,
+  model: mockInspectorConfig.model,
+  credential_configured: true,
+  connectivity_status: "passed",
+  compatibility_status: "verified",
+  connectivity_checked_at: iso(2),
+  compatibility_checked_at: iso(5),
+  deep_inspection_enabled: true,
+  warnings: [],
+};
+
+export const mockCompatibilityResult: CompatibilityResult = {
+  status: "verified",
+  opencode_version: "0.9.0",
+  model: mockInspectorConfig.model,
+  ordinary_source_read: true,
+  sensitive_content_absent: true,
+  edit_denied: true,
+  shell_denied: true,
+  snapshot_unmodified: true,
+  started_at: iso(5),
+  completed_at: iso(5),
+  warnings: [],
+  error: null,
+};

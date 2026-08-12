@@ -1,6 +1,17 @@
-import { useEffect, useState } from "react";
-import type { Project } from "@idlerdream/protocol";
-import { fetchRemovedProjects, purgeProject, restoreProject } from "../lib/api";
+import { useCallback, useEffect, useState } from "react";
+import type { InspectorConfig, InspectorStatus, Project } from "@idlerdream/protocol";
+import {
+  deleteInspectorCredential,
+  fetchInspectorConfig,
+  fetchInspectorStatus,
+  fetchRemovedProjects,
+  purgeProject,
+  restoreProject,
+  setInspectorCredential,
+  testInspectorCompatibility,
+  testInspectorConnectivity,
+  updateInspectorConfig,
+} from "../lib/api";
 import { Icon } from "../lib/icons";
 
 type SettingsSection = "inspector" | "monitoring" | "data" | "application";
@@ -12,10 +23,29 @@ const sections: Array<{ id: SettingsSection; label: string }> = [
   { id: "application", label: "应用行为" },
 ];
 
+function formatTime(iso: string | null | undefined): string {
+  if (!iso) return "从未";
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return "未知";
+  }
+}
+
 export function SettingsPage() {
   const [active, setActive] = useState<SettingsSection>("inspector");
   const [launchAtLogin, setLaunchAtLogin] = useState(true);
   const [removed, setRemoved] = useState<Project[]>([]);
+
+  // Inspector state (CR-15 functional settings).
+  const [status, setStatus] = useState<InspectorStatus | null>(null);
+  const [provider, setProvider] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [model, setModel] = useState("");
+  const [executable, setExecutable] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
   const reloadRemoved = async () => {
     try {
@@ -25,9 +55,23 @@ export function SettingsPage() {
     }
   };
 
+  const reloadInspector = useCallback(async () => {
+    try {
+      const [nextStatus, config] = await Promise.all([fetchInspectorStatus(), fetchInspectorConfig()]);
+      setStatus(nextStatus);
+      setProvider(config.provider ?? "");
+      setBaseUrl(config.base_url ?? "");
+      setModel(config.model ?? "");
+      setExecutable(config.opencode_executable ?? "");
+    } catch (error) {
+      setMessage({ kind: "error", text: error instanceof Error ? error.message : String(error) });
+    }
+  }, []);
+
   useEffect(() => {
     void reloadRemoved();
-  }, []);
+    void reloadInspector();
+  }, [reloadInspector]);
 
   const restore = async (projectId: string) => {
     await restoreProject(projectId);
@@ -41,6 +85,95 @@ export function SettingsPage() {
     if (!confirmed) return;
     await purgeProject(project.id);
     await reloadRemoved();
+  };
+
+  const saveConfig = async () => {
+    setBusy("saving");
+    setMessage(null);
+    try {
+      await updateInspectorConfig({ provider, base_url: baseUrl, model, opencode_executable: executable });
+      setMessage({ kind: "ok", text: "巡检器配置已保存。" });
+      await reloadInspector();
+    } catch (error) {
+      setMessage({ kind: "error", text: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveCredential = async () => {
+    if (!provider) {
+      setMessage({ kind: "error", text: "请先填写 Provider 名称。" });
+      return;
+    }
+    if (!apiKey) {
+      setMessage({ kind: "error", text: "请输入 API Key。" });
+      return;
+    }
+    setBusy("credential");
+    setMessage(null);
+    try {
+      await setInspectorCredential(provider, apiKey);
+      setApiKey(""); // CR-15: never retain the key in renderer state.
+      setMessage({ kind: "ok", text: "凭据已写入系统凭据管理器。" });
+      await reloadInspector();
+    } catch (error) {
+      setMessage({ kind: "error", text: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const removeCredential = async () => {
+    const target = provider || status?.provider;
+    if (!target) return;
+    setBusy("credential");
+    setMessage(null);
+    try {
+      await deleteInspectorCredential(target);
+      setMessage({ kind: "ok", text: "凭据已删除。" });
+      await reloadInspector();
+    } catch (error) {
+      setMessage({ kind: "error", text: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const verifyConnectivity = async () => {
+    setBusy("connectivity");
+    setMessage(null);
+    try {
+      const result = await testInspectorConnectivity(provider, baseUrl, model);
+      setMessage(
+        result.status === "passed"
+          ? { kind: "ok", text: "模型连通性验证通过。" }
+          : { kind: "error", text: `连通性验证失败：${result.error ?? result.status}` },
+      );
+      await reloadInspector();
+    } catch (error) {
+      setMessage({ kind: "error", text: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const rerunCompatibility = async () => {
+    setBusy("compatibility");
+    setMessage(null);
+    try {
+      const result = await testInspectorCompatibility();
+      setMessage(
+        result.status === "verified"
+          ? { kind: "ok", text: "只读隔离测试通过，深度巡检已启用。" }
+          : { kind: "error", text: `只读隔离测试未通过：${result.error ?? "请检查 OpenCode 与模型配置"}` },
+      );
+      await reloadInspector();
+    } catch (error) {
+      setMessage({ kind: "error", text: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setBusy(null);
+    }
   };
 
   return (
@@ -70,39 +203,85 @@ export function SettingsPage() {
         <main>
           {active === "inspector" && (
             <>
+              {message && (
+                <div className={`settings-message settings-message--${message.kind}`}>
+                  <Icon name={message.kind === "ok" ? "check" : "alert"} />
+                  <span>{message.text}</span>
+                </div>
+              )}
               <section className="panel settings-section">
                 <div className="panel-title">
                   <div>
                     <span className="eyebrow">Inspector</span>
                     <h2>OpenCode 巡检器</h2>
                   </div>
-                  <span className="status-indicator ok"><i />可用</span>
+                  <span className={`status-indicator ${status?.opencode_available ? "ok" : ""}`}>
+                    <i />{status?.opencode_available ? "可用" : "不可用"}
+                  </span>
                 </div>
+                {status && status.warnings.length > 0 && (
+                  <p className="settings-note">
+                    {status.warnings.join("；")}。
+                  </p>
+                )}
                 <div className="setting-row">
                   <div>
                     <strong>OpenCode 路径</strong>
-                    <span>用于执行非交互只读深度巡检</span>
+                    <span>用于执行非交互只读深度巡检；留空使用 PATH 中的 opencode</span>
                   </div>
-                  <code title="C:\Users\Oasis\AppData\Roaming\npm\opencode.cmd">
-                    C:\Users\Oasis\AppData\Roaming\npm\opencode.cmd
-                  </code>
+                  <input
+                    className="settings-input"
+                    value={executable}
+                    onChange={(event) => setExecutable(event.target.value)}
+                    placeholder="opencode"
+                  />
                 </div>
                 <div className="setting-row">
                   <div>
                     <strong>模型配置档案</strong>
                     <span>API Key 不保存在 IdlerDream 数据库</span>
                   </div>
-                  <button className="select-like">
-                    deepseek-v4-flash <Icon name="chevron" />
-                  </button>
+                  <div className="settings-fields">
+                    <input
+                      className="settings-input"
+                      value={provider}
+                      onChange={(event) => setProvider(event.target.value)}
+                      placeholder="Provider（如 deepseek）"
+                    />
+                    <input
+                      className="settings-input"
+                      value={baseUrl}
+                      onChange={(event) => setBaseUrl(event.target.value)}
+                      placeholder="Base URL"
+                    />
+                    <input
+                      className="settings-input"
+                      value={model}
+                      onChange={(event) => setModel(event.target.value)}
+                      placeholder="provider/model"
+                    />
+                  </div>
                 </div>
                 <div className="setting-row">
                   <div>
                     <strong>只读隔离测试</strong>
-                    <span>当前 OpenCode 版本通过诱导修改测试</span>
+                    <span>
+                      状态：{status?.compatibility_status === "verified" ? "已通过" : status?.compatibility_status === "failed" ? "未通过" : "未验证"}
+                      {status?.compatibility_checked_at ? ` · 最近验证于 ${formatTime(status.compatibility_checked_at)}` : ""}
+                      {status?.deep_inspection_enabled ? " · 深度巡检已启用" : " · 深度巡检禁用"}
+                    </span>
                   </div>
-                  <button className="button button--secondary">
-                    <Icon name="shield" />重新测试
+                  <button
+                    className="button button--secondary"
+                    onClick={() => void rerunCompatibility()}
+                    disabled={busy !== null}
+                  >
+                    <Icon name="shield" />{busy === "compatibility" ? "测试中…" : "重新测试"}
+                  </button>
+                </div>
+                <div className="setting-actions">
+                  <button className="button button--primary" onClick={() => void saveConfig()} disabled={busy !== null}>
+                    {busy === "saving" ? "保存中…" : "保存配置"}
                   </button>
                 </div>
               </section>
@@ -113,20 +292,57 @@ export function SettingsPage() {
                     <span className="eyebrow">Credentials</span>
                     <h2>API 凭据</h2>
                   </div>
+                  <span className="settings-value">{status?.credential_configured ? "已配置" : "未配置"}</span>
                 </div>
                 <div className="setting-row">
                   <div>
-                    <strong>凭据存储</strong>
-                    <span>Windows 凭据管理器 · 仅注入巡检子进程</span>
+                    <strong>Provider 与 API Key</strong>
+                    <span>写入 Windows 凭据管理器 · 仅注入巡检子进程</span>
                   </div>
-                  <span className="settings-value">已配置</span>
+                  <div className="settings-fields">
+                    <input
+                      className="settings-input"
+                      value={provider}
+                      onChange={(event) => setProvider(event.target.value)}
+                      placeholder="Provider（如 deepseek）"
+                    />
+                    <input
+                      className="settings-input"
+                      type="password"
+                      value={apiKey}
+                      onChange={(event) => setApiKey(event.target.value)}
+                      autoComplete="off"
+                      placeholder="API Key（保存后立即清除）"
+                    />
+                  </div>
                 </div>
                 <div className="setting-row">
                   <div>
                     <strong>连通性</strong>
-                    <span>最近验证于 2 分钟前</span>
+                    <span>
+                      状态：{status?.connectivity_status === "passed" ? "通过" : status?.connectivity_status === "failed" ? "失败" : "未验证"}
+                      {status?.connectivity_checked_at ? ` · 最近验证于 ${formatTime(status.connectivity_checked_at)}` : ""}
+                    </span>
                   </div>
-                  <button className="button button--secondary">重新验证</button>
+                  <button
+                    className="button button--secondary"
+                    onClick={() => void verifyConnectivity()}
+                    disabled={busy !== null}
+                  >
+                    {busy === "connectivity" ? "验证中…" : "重新验证"}
+                  </button>
+                </div>
+                <div className="setting-actions">
+                  <button className="button button--primary" onClick={() => void saveCredential()} disabled={busy !== null}>
+                    {busy === "credential" ? "保存中…" : "保存凭据"}
+                  </button>
+                  <button
+                    className="button button--danger"
+                    onClick={() => void removeCredential()}
+                    disabled={busy !== null || !(status?.credential_configured)}
+                  >
+                    删除凭据
+                  </button>
                 </div>
               </section>
             </>

@@ -278,3 +278,64 @@ class InspectionJob(BaseModel):
 
 
 AgentProcess.model_rebuild()
+
+
+# ---------------------------------------------------------------------------
+# CR-15: Inspector configuration / status / validation contracts
+# ---------------------------------------------------------------------------
+
+
+class InspectorConfig(BaseModel):
+    """Non-sensitive Inspector settings. Never holds an API key."""
+
+    provider: str | None = None
+    base_url: str | None = None
+    model: str | None = None
+    opencode_executable: str | None = None
+
+
+class InspectorStatus(BaseModel):
+    opencode_available: bool = False
+    opencode_executable: str | None = None
+    opencode_version: str | None = None
+
+    provider: str | None = None
+    base_url: str | None = None
+    model: str | None = None
+
+    credential_configured: bool = False
+
+    connectivity_status: Literal["unknown", "passed", "failed"] = "unknown"
+    compatibility_status: Literal["unverified", "verified", "failed"] = "unverified"
+
+    connectivity_checked_at: datetime | None = None
+    compatibility_checked_at: datetime | None = None
+
+    deep_inspection_enabled: bool = False
+    warnings: list[str] = Field(default_factory=list)
+
+
+class ConnectivityResult(BaseModel):
+    status: Literal["passed", "failed", "timeout", "provider_error", "authentication_error", "model_not_found"]
+    model: str | None = None
+    provider: str | None = None
+    checked_at: datetime = Field(default_factory=utc_now)
+    error: str | None = None
+
+
+class CompatibilityResult(BaseModel):
+    status: Literal["verified", "failed"]
+    opencode_version: str | None = None
+    model: str | None = None
+
+    ordinary_source_read: bool = False
+    sensitive_content_absent: bool = False
+    edit_denied: bool = False
+    shell_denied: bool = False
+    snapshot_unmodified: bool = False
+
+    started_at: datetime = Field(default_factory=utc_now)
+    completed_at: datetime | None = None
+
+    warnings: list[str] = Field(default_factory=list)
+    error: str | None = None

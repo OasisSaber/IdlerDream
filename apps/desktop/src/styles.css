@@ -535,3 +535,19 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .removed-item strong { font-size: 12px; font-weight: 620; }
 .removed-item span { max-width: 560px; margin-top: 3px; overflow: hidden; color: var(--text-tertiary); font-family: var(--font-mono); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .removed-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+
+/* CR-15: functional onboarding/settings form controls */
+.settings-input { min-width: 0; height: 38px; border: 1px solid var(--separator); border-radius: 9px; padding: 0 11px; color: var(--text-primary); background: var(--surface-tertiary); font-size: 10px; }
+.settings-input:focus { outline: none; border-color: var(--blue); }
+.settings-fields { display: grid; min-width: 0; max-width: 420px; flex: 1 1 auto; gap: 7px; }
+.settings-fields .settings-input { width: 100%; }
+.setting-actions { display: flex; gap: 8px; margin-top: 16px; }
+.setting-actions .button { min-height: 38px; padding: 0 14px; font-size: 10px; }
+.settings-message { display: flex; align-items: center; gap: 8px; border: 1px solid var(--separator); border-radius: 11px; padding: 10px 13px; font-size: 10px; font-weight: 620; background: var(--surface-secondary); }
+.settings-message svg { width: 13px; }
+.settings-message--ok { color: var(--green); border-color: var(--green-soft); background: var(--green-soft); }
+.settings-message--error { color: var(--red); border-color: var(--red-soft); background: var(--red-soft); }
+.settings-note { margin: 10px 0 0; color: var(--red); font-size: 9px; }
+.setup-result--error { border-color: var(--red-soft); background: var(--red-soft); }
+.setup-result--error > div { color: var(--red); }
+.setup-result--error ul { margin: 7px 0 0 24px; padding: 0; color: var(--text-secondary); font-size: 9px; line-height: 1.6; }

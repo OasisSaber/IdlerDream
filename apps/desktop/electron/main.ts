@@ -21,6 +21,10 @@ const CONTROL_COMMANDS = new Set([
   "ping", "project.add", "project.discover", "project.remove",
   "project.restore", "project.purge", "project.list_removed",
   "inspection.start", "inspection.cancel",
+  // CR-15: Onboarding/Settings functional flows.
+  "inspector.status", "inspector.config.get", "inspector.config.update",
+  "inspector.credential.set", "inspector.credential.delete",
+  "inspector.connectivity.test", "inspector.compatibility.test",
 ]);
 
 let mainWindow: BrowserWindow | null = null;

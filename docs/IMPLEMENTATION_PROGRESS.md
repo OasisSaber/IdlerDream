@@ -116,8 +116,10 @@ npm run build                              → vite + tsc + electron-builder win
 - P0 Windows validation: OpenCode noninteractive JSON output, Job Object
   process-tree cancellation, Credential Manager/DPAPI integration, read-only
   policy inducement test — require the packaged Windows environment.
-- CR-15 (full onboarding/settings flows): steps 0–2 of onboarding remain
-  visual prototypes (OpenCode detection, model credentials, isolation test).
+- CR-15 (full onboarding/settings flows): sidecar services + typed IPC + functional
+  onboarding steps 0–2 and Settings inspector/credentials panels are implemented
+  (2026-08-12); remaining P0 Windows validation on real machines: Credential
+  Manager write and a real provider connectivity round trip.
 - CR-19–CR-24: raw-report compaction/DPAPI tests, monitoring scheduler
   split, control-pipe ACL tests, dependency policy, Sidecar PyInstaller
   packaging + NSIS clean-VM test.

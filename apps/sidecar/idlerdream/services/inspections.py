@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -27,6 +28,7 @@ class InspectionService:
         event_bus: EventBus,
         inspector: OpenCodeAdapter | MockInspectorAdapter,
         concurrency: int = 4,
+        deep_gate: Callable[[], None] | None = None,
     ) -> None:
         self.projects = project_service
         self.facts = fact_service
@@ -35,6 +37,7 @@ class InspectionService:
         self.raw_reports = raw_report_store
         self.events = event_bus
         self.inspector = inspector
+        self.deep_gate = deep_gate
         self._semaphore = asyncio.Semaphore(max(1, concurrency))
         self._jobs: dict[UUID, InspectionJob] = {}
         self._tasks: dict[UUID, asyncio.Task[None]] = {}
@@ -78,6 +81,10 @@ class InspectionService:
 
     async def _run(self, job: InspectionJob) -> None:
         try:
+            if self.deep_gate is not None:
+                # CR-15: production deep inspection requires a verified
+                # read-only boundary. Mock inspectors skip the gate.
+                self.deep_gate()
             async with self._semaphore:
                 job.status = "running"
                 job.stage = "collecting_baseline"

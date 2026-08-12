@@ -253,7 +253,7 @@ Implemented and verified on branch `fix/inspection-real-machine-reliability`
 | #19 OpenCode cannot read under old policy | Code complete; real-machine Gate C passed | OpenCode 1.18.12 + `opencode-go/deepseek-v4-flash`, read OK, secrets absent, writes denied, snapshot unchanged |
 | #20 strict parser fails on model variance | Code complete; real-machine Gates D/E passed | 10/10 stability; 5/5 project matrix; JSON5 repair + assistant-text event filtering |
 | CR-14 two-stage project removal | Implemented (2026-08-04) | recycle bin, restore/purge, expiry, migration tests |
-| CR-15 onboarding/settings flows | Partial | Onboarding step 4 + add-workspace dialog real; steps 0–2 remain visual prototypes |
+| CR-15 onboarding/settings flows | Implemented (2026-08-12) | typed `inspector.*` IPC + Sidecar `InspectorService` (config persistence, Credential Manager, connectivity/compatibility tests, deep-inspection gate); onboarding steps 1–2 and Settings functional; tests added; real-machine Credential Manager/connectivity run pending |
 | CR-16 WebSocket event stream | Implemented (2026-08-04) | authenticated `/api/v1/events`, reconnect, tests |
 | CR-17 `considered_paths` | Implemented (2026-08-04) | protocol/collectors/UI renamed; tests |
 | CR-18 snapshot append/index atomicity | Implemented (2026-08-04) | startup reconciliation + tests |
