@@ -1,3 +1,8 @@
+> [!IMPORTANT]
+> **Archived project.** Development stopped on 2026-08-12.
+> This repository is retained for historical/reference purposes and did not
+> reach a supported v0.1 release.
+
 # IdlerDream v0.1
 
 IdlerDream 是一个 Windows 本地优先的只读仪表盘，用于观察多个代码工作区与本地
