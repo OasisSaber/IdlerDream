@@ -34,7 +34,7 @@
     "electron-builder": "^26.0.12",
     "jsdom": "^30.0.1",
     "typescript": "^5.9.2",
-    "vite": "^7.1.2",
+    "vite": "^7.3.7",
     "vitest": "^4.1.10",
     "wait-on": "^8.0.4"
   },
